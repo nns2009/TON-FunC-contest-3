@@ -1,14 +1,15 @@
 {
-  "name": "contest-2",
+  "name": "contest-3",
   "packageManager": "yarn@3.2.0",
   "type": "module",
   "module": "es2022",
   "dependencies": {
+    "@ton-community/func-js": "^0.2.1",
     "bn.js": "^5.2.1",
     "lodash-es": "^4.17.21",
     "seedrandom": "^3.0.5",
-    "ton": "^12.0.0",
-    "ton-contract-executor": "^0.5.2"
+    "ton": "^12.1.5",
+    "ton-contract-executor": "^0.6.0"
   },
   "scripts": {
     "exp": "node experiment.js"

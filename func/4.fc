@@ -2,17 +2,141 @@
 	Implement Curve25519 addition and multiplication.
 -}
 
-() recv_internal () {
+const int prime = 57896044618658097711785492504343953926634992332820282019728792003956564819949; ;; (1 << 255) - 19;
+const int A = 486662;
+const int B = 1;
+
+
+;; MULDIVMOD (x y z – q r)
+(int, int) mul_div_mod(int a, int b, int mod) asm "MULDIVMOD";
+int mul_mod(int a, int b, int mod) {
+	(_, int r) = mul_div_mod(a, b, mod);
+	return r;
 }
 
+int zhuk(int a, int b) method_id {
+	return a + b;
+}
+
+int inverse_mod(int v, int mod)
+{
+    int m0 = mod;
+    int y = 0;
+	int x = 1;
+ 
+    if (mod == 1) {
+        return 0;
+	}
+ 
+    while (v > 1) {
+        ;; q is quotient
+        int q = v / mod;
+        int t = mod;
+ 
+        ;; m is remainder now, process same as
+        ;; Euclid's algo
+        mod = v % mod;
+		v = t;
+        t = y;
+ 
+        ;; Update y and x
+        y = x - q * y;
+        x = t;
+    }
+ 
+    ;; Make x positive
+    if (x < 0) {
+        x += m0;
+	}
+ 
+    return x;
+}
+
+int divide_mod(int a, int b, int mod) {
+	return mul_mod(a, inverse_mod(b, mod), mod);
+}
+
+int mult(int a, int b) { return mul_mod(a, b, prime); }
+int sqr(int v) { return mult(v, v); } ;; v ** 2
+int pow3(int v) { return mult(v, sqr(v)); } ;; v ** 3
+int div(int a, int b) { return divide_mod(a, b, prime); }
+
 ;; testable
-(int,int) add(int x1, int y1, int x2, int y2) {
-	;; Add code here
-	;; return x,y coordinate of Point1 + Point2
+(int, int) add(int x1, int y1, int x2, int y2) {
+	int slope = divide_mod(
+		(y2 - y1) % prime,
+		(x2 - x1) % prime,
+	prime);
+
+	;; (slope ** 2 - A - x1 - x2) % prime
+	int x3 = sqr(slope);
+	x3 = (x3 - A) % prime;
+	x3 = (x3 - x1) % prime;
+	x3 = (x3 - x3) % prime;
+	;; y3 = (slope * (x1 - x3) - y1) % prime
+	int y3 = mult(slope, (x1 - x3));
+	y3 = (y3 - y1) % prime;
+	
+	return (x3, y3);
+}
+
+int double_x(int x) {
+	;; (3*x*x + 2*A*x + 1) ** 2
+	int numerator = mult(3, sqr(x));
+	numerator = (numerator + mult(mult(2, A), x) + 1) % prime;
+	numerator = sqr(numerator);
+
+	;; 4 * (x**3 + A*x**2 + x)
+	int denominator = pow3(x);
+	denominator = (denominator + mult(A, sqr(x))) % prime;
+	denominator = (denominator + x) % prime;
+	denominator = mult(4, denominator);
+
+	int dx = div(numerator, denominator);
+	dx = (dx - A) % prime;
+	dx = (dx - mult(2, x)) % prime;
+
+	return dx;
+}
+
+int add_neighbour_xs(x1, x2, base_x) {
+	return div(
+		sqr((mult(x1, x2) - 1) % prime),
+		mult(base_x, sqr((x2 - x1) % prime))
+	);
 }
 
 ;; testable
 int mul(int x1, int factor) {
-	;; Add code here
-	;; return x coordinate of Point1 * factor
+	int vi0 = x1;
+	int vi1 = double_x(x1);
+	int skip = -1;
+
+	int i = 256;
+	while (i > 0) {
+		i -= 1;
+		int bit = factor & (1 << i);
+		if (skip) {
+			if (bit) {
+				skip = 0;
+			}
+		} else {
+			int low = double_x(vi0);
+			int mid = add_neighbour_xs(vi0, vi1, x1);
+			int high = double_x(vi1);
+
+			if (bit) {
+				vi0 = mid;
+				vi1 = high;
+			} else {
+				vi0 = low;
+				vi1 = mid;
+			}
+		}
+	}
+
+	return vi0;
+}
+
+() recv_internal () {
 }

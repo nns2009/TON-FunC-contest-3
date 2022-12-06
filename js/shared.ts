@@ -1,4 +1,6 @@
 import fs from 'fs';
+
+import { compileFunc } from "@ton-community/func-js";
 import executor, { SmartContract, TVMExecutionResult } from "ton-contract-executor";
 import ton, { Address, Cell, Slice, Builder, InternalMessage, ExternalMessage, CommonMessageInfo, CellMessage, toNano, Contract, Message, StateInit, TonClient } from "ton";
 import BN from "bn.js";
@@ -39,7 +41,7 @@ export function readString(filename: string): string {
 
 
 export function reverseString(str:string): string {
-    return str.split("").reverse().join("");
+	return str.split("").reverse().join("");
 }
 
 
@@ -52,10 +54,26 @@ export function bufferEqual(a: Buffer, b: Buffer): boolean {
 // ------------------------ Contract functions ------------------------
 
 export const contractLoader = (...filenames: string[]) => {
-	const sourceCode = filenames
-		.map(filename =>  readString(filename) + `\n\n;; end of <<<<< ${filename} >>>>>`)
-		.join('\n\n\n\n\n');
-	return (dataCell: Cell) => SmartContract.fromFuncSource(sourceCode, dataCell);
+	const compileResultPromise = compileFunc({
+		sources: Object.fromEntries(
+			filenames.map(path =>
+				[path.split('/').at(-1), readString(path)]
+			)),
+		entryPoints: [filenames.at(-1)?.split('/').at(-1)!],
+	})
+
+	return async (dataCell: Cell) => {
+		const compileResult = await compileResultPromise;
+
+		if (compileResult.status === 'error')
+			throw new Error('Compilation failed: ' + compileResult.message);
+	
+		return await SmartContract.fromCell(
+			Cell.fromBoc(Buffer.from(compileResult.codeBoc, 'base64'))[0],
+			dataCell,
+		)
+	}
+
 };
 
 
