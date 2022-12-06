@@ -11,6 +11,9 @@ def inverse_mod(v, mod):
 def divide_mod(a, b, mod):
 	return (a * inverse_mod(b, mod) % mod)
 
+# Formulas for addition from:
+# https://www.intechopen.com/chapters/68653
+
 # Without p1==p2 case
 def add_points(p1, p2):
 	x1, y1 = p1
@@ -50,6 +53,9 @@ def add_neighbour_xs(x1, x2, base_x):
 def triple_x(x):
 	return add_neighbour_xs(x, double_x(x), x)
 
+# Formulas for multiplication from:
+# https://www.cl.cam.ac.uk/teaching/2122/Crypto/curve25519.pdf
+# starting from page 23
 def mul_x(x, n):
 	vi0 = x
 	vi1 = double_x(x)
@@ -115,6 +121,8 @@ print('Provided task test passed')
 
 
 # ---------------------- Mass multiplications test ----------------------
+
+# Base point from: https://safecurves.cr.yp.to/base.html
 base_x = 9
 base_point = (base_x, 14781619447589544791020593568409986887264606134616475288964881837755586237401)
 cur = double_point(base_point)
