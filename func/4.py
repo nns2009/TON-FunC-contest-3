@@ -55,6 +55,17 @@ def double_x(x):
 	) - A - 2*x
 	return temp % prime
 
+def triple_x(x):
+	x1 = x
+	x2 = double_x(x)
+
+	temp = divide_mod(
+		(x1 * x2 - 1) ** 2,
+		x * (x2 - x1) ** 2,
+		prime
+	)
+	return temp
+
 def mul_point(p, n):
 	pass
 
@@ -110,7 +121,7 @@ print('Add test: ' + ('Correct' if add_correct == add_res else 'Wrong'))
 
 
 
-# ---------------------- Add test ----------------------
+# ---------------------- Mul test ----------------------
 print('----- Mul -----')
 
 mul_test_x = 56391866308239752110494101482511933051315484376135027248208522567059122930692
@@ -124,3 +135,22 @@ mul_correct = 417078069082161071509332116149050263121549554844645157895937412336
 print(mul_res)
 print(mul_correct)
 print(double_x(double_x(mul_test_x))) # Correct
+
+
+
+
+# ---------------------- Many multiplications test ----------------------
+base_x = 9
+base_point = (base_x, 14781619447589544791020593568409986887264606134616475288964881837755586237401)
+cur = double_point(base_point)
+ps = [None, base_point, cur]
+for i in range(3, 8):
+	cur = add_points(cur, base_point)
+	ps += [cur]
+
+for i, p in enumerate(ps):
+	print(f'{i}: {p}')
+
+print('----- Doubling -----')
+print(double_x(base_x))
+print(triple_x(base_x))
