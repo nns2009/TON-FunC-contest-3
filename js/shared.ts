@@ -1,7 +1,7 @@
 import fs from 'fs';
 
 import { compileFunc } from "@ton-community/func-js";
-import executor, { SmartContract, TVMExecutionResult } from "ton-contract-executor";
+import executor, { GasLimits, SmartContract, TVMExecutionResult, TVMStack } from "ton-contract-executor";
 import ton, { Address, Cell, Slice, Builder, InternalMessage, ExternalMessage, CommonMessageInfo, CellMessage, toNano, Contract, Message, StateInit, TonClient } from "ton";
 import BN from "bn.js";
 import seedrandom from 'seedrandom';
@@ -73,8 +73,24 @@ export const contractLoader = (...filenames: string[]) => {
 			dataCell,
 		)
 	}
-
 };
+
+export async function invokeGetMethod1Result<T>(
+	contract: SmartContract,
+	method: string,
+	args: TVMStack,
+	opts?: { gasLimits?: GasLimits | undefined; } | undefined
+): Promise<T> {
+	const exres = await contract.invokeGetMethod(method, args, opts);
+	if (exres.type !== 'success' || exres.exit_code > 0) {
+		throw new Error(`exit_code = ${exres.exit_code}, ${exres.logs}`);
+	}
+
+	const { result } = exres;
+	const value = result[0]! as T;
+
+	return value;
+}
 
 
 

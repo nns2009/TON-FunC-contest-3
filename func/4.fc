@@ -18,7 +18,7 @@ int zhuk(int a, int b) method_id {
 	return a + b;
 }
 
-int inverse_mod(int v, int mod)
+int inverse_mod(int v, int mod) method_id
 {
     int m0 = mod;
     int y = 0;

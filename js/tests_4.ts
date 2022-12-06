@@ -1,32 +1,28 @@
 import BN from 'bn.js';
 import { stackInt } from 'ton-contract-executor';
 
-import { contractLoader, cell } from './shared.js';
-
-
+import { contractLoader, cell, invokeGetMethod1Result } from './shared.js';
 
 
 let initialData = cell();
 let contract = await contractLoader('./../func/4.fc')(initialData);
 
 async function testInverseMod(v: number, mod: number) {
-
-	const exres = await contract.invokeGetMethod('zhuk', [
+	const value = await invokeGetMethod1Result<BN>(contract, 'inverse_mod', [
 		stackInt(v), stackInt(mod)
 	]);
-	if (exres.type !== 'success' || exres.exit_code > 0) {
-		throw new Error(`exit_code = ${exres.exit_code}, ${exres.logs}`);
+
+	console.log(`inverse_mod result is ${value.toString()}`);
+	const num = value.toNumber();
+
+	const multiplied = (v * num) % mod;
+	const correct = multiplied === 1;
+
+	console.log(`${v} * ${num} = ${multiplied} (mod ${mod}) - ${correct ? 'Correct' : 'Wrong'}`);
+	if (!correct) {
+		throw 'Test failed';
 	}
-
-	const { result } = exres;
-	const value = result[0]! as BN;
-
-	console.log(value.toString());
-	//console.log(`testEncode() passed, address = ${resAddress}`);
 }
 
 
-// !!! INCOMPLETE !!!
-// I just sent the solution without testing once it compiled
-// At least one "test" launch is needed to make sure it compiled
 await testInverseMod(40, 97);
