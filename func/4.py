@@ -69,37 +69,6 @@ def triple_x(x):
 def mul_point(p, n):
 	pass
 
-# Code suggested by ChatGPT (adapted and still incorrect)
-def add_points_on_curve_25519(p1, p2):
-	# p1 and p2 are tuples representing the x- and y-coordinates of the points
-	x1, y1 = p1
-	x2, y2 = p2
-
-	# Compute the sum of the x-coordinates using modular arithmetic
-	x_sum = (x1 + x2) % prime
-
-	# Compute the sum of the y-coordinates using modular arithmetic
-	y_sum = (y1 + y2) % prime
-
-	# If the sum of the y-coordinates is 0, the result is the point at infinity
-	if y_sum == 0:
-		return (None, None)
-
-	# Compute the slope of the line passing through the two points
-	slope = divide_mod((3 * x1**2 + 486662) * y1 + y1, y2 - y1, prime)
-	print(slope)
-	
-	# Compute the x-coordinate of the result using the slope and the x-coordinate sum
-	x_result = (slope**2 - x1 - x2) % prime
-
-	# Compute the y-coordinate of the result using the equation of the curve and the x-coordinate
-	y_result = (slope * (x1 - x_result) - y1) % prime
-
-	# Return the result as a tuple of the x- and y-coordinates
-	return (x_result, y_result)
-
-
-
 
 
 # ---------------------- Add test ----------------------
