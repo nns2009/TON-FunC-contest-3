@@ -1,0 +1,18 @@
+# Mac
+.DS_Store
+
+
+/build/contract.pk
+/build
+.idea
+
+/node_modules
+
+# yarn
+.pnp.*
+.yarn/*
+# !.yarn/patches
+# !.yarn/plugins
+# !.yarn/releases
+# !.yarn/sdks
+# !.yarn/versions

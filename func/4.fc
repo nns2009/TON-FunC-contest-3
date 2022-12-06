@@ -1,0 +1,18 @@
+{-
+	Implement Curve25519 addition and multiplication.
+-}
+
+() recv_internal () {
+}
+
+;; testable
+(int,int) add(int x1, int y1, int x2, int y2) {
+	;; Add code here
+	;; return x,y coordinate of Point1 + Point2
+}
+
+;; testable
+int mul(int x1, int factor) {
+	;; Add code here
+	;; return x coordinate of Point1 * factor
+}

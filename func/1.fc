@@ -1,0 +1,15 @@
+{-
+	In TON there is a limit on the size of the external message which can be sent equal to 64 kB. Sometimes it is necessary to send a larger message; it requires the onchain construction of one message from multiple smaller parts. Your task is to create such construction contract.
+	In particular, a contestant needs to develop a FunC contract with two features:
+		a) it has get_method "decomposite" for decomposition of large cell to parts: it accepts 1 cell (number_of_bits<1000000, number_of_cells<4000 , depth<256) and 1 address and returns tuple of cells (each of which has less than 1000 distinct cells and 40000 bits total), those cells will be transformed to slice and sent as internal message body to the contract.
+		b) recv_internal should handle those internal messages from get-method described above and upon receiving last one, send initial large cell to the address (coins amount 0, mode 0). For simplicity, it is guaranteed that messages will be sent exactly in the order in which they were in decomposite output and no other messages will be sent in between.
+	Note, that initial state of contract storage will be empty cell: cell with zero bits and refs.
+-}
+
+;; testable
+() recv_internal (slice body) {
+}
+
+;; testable
+tuple decomposite (cell big_cell, slice destination_address) method_id {
+}

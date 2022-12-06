@@ -1,0 +1,33 @@
+{-
+	Validators in TON network are chosen onchain by special smart-contract called Elector: participants sends their application and smart-contract deterministically decides who will be the next validator. Your task is to implement (in simplified form) election logic in the gas-optimal way:
+	"Mini-elector" should accept internal messages with the following layout.
+		a) `participate#5ce28eea query_id:uint64 max_factor:uint24 = InternalMsgBody;`. Upon receiving this message contract should store sender of the message (called key), max_factor and amount of TON attached to message (called stake) to storage (if key already exists in the table max_factor should be rewritten to new one while amount should be added to previously processed). If maxfactor is less than 65536 it should be treated as equal to 65536, if maxfactor is higher than 655360 it should be treated as equal to 655360.
+		b) `try_elect#207fa5f5 query_id:uint64 = InternalMsgBody;` - upon receiving this message contract should try to form winners list (key, effective_stake) from participant' applications. Note that `effective_stake` may be less than `stake` (in other words, not all the stake will work). Excesses of the stake (as well as stakes of "losers", should be stored separately).
+		Rules of forming a list:
+			I) it has at least 5 rows
+			II) for each participant A in the list, the ratio of A's `effective_stake` to the `effective_stake` of participant with the smallest stake `effective_stake` should be equal or less to A's max_factor/65536 (in other words, max_factor is 65536 based rational number).
+			III) Under conditions I and II, total effective stake (sum of `effective_stake` of all winners) should be maximal.
+
+		If it is not possible to form a list, contract should throw. Otherwise, it should respond with 
+		`success#eefa5ea4 query_id:uint64 total_winners:uint32 total_effective_stake:(VarUInteger 16) unused_stake:(VarUInteger 16) = InternalMsgBody;` (query_id matched that in try_elect)
+
+		After responding with `success` message, contract's get_method `get_stake_table` should return two tuples with winners and "unused funds", this tuples should contain exactly the same number of elements as there are winners/participants-with-unused-funds (NOT lisp-style lists), each element should be in format [address-as-a-slice, stake-as-number].  Note that if participants' stake is not fully used, it will be presented in both tuples. For instance, possible result of get_stake_table can be `(["Ef8RERERERERERERERERERERERERERERERERERERERERERlb"a, 10], ["Ef8iIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiImKK"a, 1],  ["Ef8zMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzM0vF"a, 1], ["Ef9ERERERERERERERERERERERERERERERERERERERERERJUo"a, 1],  ["Ef9VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVbxn"a, 1]), (["Ef8RERERERERERERERERERERERERERERERERERERERERERlb"a, 10])`.
+		
+		Note that tests are organized as following: there will be a few participate requests (less than 255) followed by one try_elect and then response and get_method result will be checked.
+-}
+
+;; testable
+() recv_internal (int msg_value, cell full_message, slice in_msg_body) {
+	(int op, int query_id) = (in_msg_body~load_uint(32),in_msg_body~load_uint(64));
+	if(op == 0x5ce28eea) {
+		....
+	}
+	if(op == 0x207fa5f5) {
+		....
+	}
+}
+
+;; testable
+(tuple, tuple) get_stake_table() method_id {
+}
+
