@@ -62,17 +62,17 @@ int pow3(int v) { return mult(v, sqr(v)); } ;; v ** 3
 int div(int a, int b) { return divide_mod(a, b, prime); }
 
 ;; testable
-(int, int) add(int x1, int y1, int x2, int y2) {
-	int slope = divide_mod(
+(int, int) add(int x1, int y1, int x2, int y2) method_id {
+	int slope = div(
 		(y2 - y1) % prime,
-		(x2 - x1) % prime,
-	prime);
+		(x2 - x1) % prime
+	);
 
 	;; (slope ** 2 - A - x1 - x2) % prime
 	int x3 = sqr(slope);
 	x3 = (x3 - A) % prime;
 	x3 = (x3 - x1) % prime;
-	x3 = (x3 - x3) % prime;
+	x3 = (x3 - x2) % prime;
 	;; y3 = (slope * (x1 - x3) - y1) % prime
 	int y3 = mult(slope, (x1 - x3));
 	y3 = (y3 - y1) % prime;
@@ -107,7 +107,7 @@ int add_neighbour_xs(x1, x2, base_x) {
 }
 
 ;; testable
-int mul(int x1, int factor) {
+int mul(int x1, int factor) method_id {
 	int vi0 = x1;
 	int vi1 = double_x(x1);
 	int skip = -1;

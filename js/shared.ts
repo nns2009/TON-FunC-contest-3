@@ -75,7 +75,7 @@ export const contractLoader = (...filenames: string[]) => {
 	}
 };
 
-export async function invokeGetMethod1Result<T>(
+export async function invokeGetMethodWithResults<T>(
 	contract: SmartContract,
 	method: string,
 	args: TVMStack,
@@ -87,10 +87,21 @@ export async function invokeGetMethod1Result<T>(
 	}
 
 	const { result } = exres;
-	const value = result[0]! as T;
+	const value = result as T;
 
 	return value;
 }
+
+export async function invokeGetMethod1Result<T>(
+	contract: SmartContract,
+	method: string,
+	args: TVMStack,
+	opts?: { gasLimits?: GasLimits | undefined; } | undefined
+): Promise<T> {
+	const results = await invokeGetMethodWithResults<[T]>(contract, method, args, opts);
+	return results[0];
+}
+
 
 
 
