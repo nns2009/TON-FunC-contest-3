@@ -11,21 +11,6 @@ def inverse_mod(v, mod):
 def divide_mod(a, b, mod):
 	return (a * inverse_mod(b, mod) % mod)
 
-def get_y(x):
-	d = (121665 * pow(121666, -1, prime)) % prime
-		
-	a = (1 + x**2) * pow((1 + d*(x**2) ), -1, prime)
-
-	v = (prime-5)//8 % (prime-1)
-
-	u = pow( 2*a,v, prime) 
-	i = 2*a*u**2 % prime
-
-	yp = a*u*(i-1) % prime
-	yn = -yp % prime
-
-	return (yp, yn)# finding y
-
 # Without p1==p2 case
 def add_points(p1, p2):
 	x1, y1 = p1
