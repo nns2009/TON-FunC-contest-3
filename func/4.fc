@@ -63,10 +63,23 @@ int div(int a, int b) { return divide_mod(a, b, prime); }
 
 ;; testable
 (int, int) add(int x1, int y1, int x2, int y2) method_id {
-	int slope = div(
-		(y2 - y1) % prime,
-		(x2 - x1) % prime
-	);
+	int slope = -1;
+	
+	if (x1 == x2) {
+		int numerator = mult(3, sqr(x1));
+		numerator = (numerator + mult(2, mult(A, x1)) + 1) % prime;
+
+		slope = div(
+			numerator,
+			mult(2, mult(B, y1))
+		);
+	}
+	else {
+		slope = div(
+			(y2 - y1) % prime,
+			(x2 - x1) % prime
+		);
+	}
 
 	;; (slope ** 2 - A - x1 - x2) % prime
 	int x3 = sqr(slope);

@@ -156,8 +156,14 @@ print(triple_x(base_x))
 
 
 
-# ---------------------- Separator ----------------------
+print('Some info for FunC multiplication testing')
 print(400, ps_seq[400][0])
 print(500, ps_seq[500][0])
 print(900, ps_seq[900][0])
+
+print(2, ps_seq[1], ps_seq[2])
+
+
+
+# ---------------------- Separator ----------------------
 print()
