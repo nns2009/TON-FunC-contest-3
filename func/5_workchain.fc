@@ -31,25 +31,6 @@ const sorter_upper_bound = 85070591730234615865843651857942052864; ;; 2 ** 126
 const max_factor_denominator = 65536;
 
 
-;; participants: address_hashed -> stake(Grams), max_factor(uint24), sender_address(slice)
-;; NEW:
-;; ps = [stake(int), max_factor(int), address(slice)][]
-[int, int, slice] participant_tuple(int stake, int max_factor, slice address) {
-	return triple(stake, max_factor, address);
-}
-(int, int, slice) participant_break([int, int, slice] t) {
-	return untriple(t);
-}
-int i_stake(tuple t) {
-	return t.at(0);
-}
-int i_max_factor(tuple t) {
-	return t.at(1);
-}
-slice i_address(tuple t) {
-	return t.at(2);
-}
-
 (cell) load_data() {
 	slice cs = get_data().begin_parse();
 
@@ -78,9 +59,8 @@ slice i_address(tuple t) {
 	do {
 		(hash, slice cs, int f) = participants.udict_get_next?(256, hash);
 		if (f) {
-			;; cs = stake(Grams), max_factor(uint24), sender_address(slice)
 			builder next_list = begin_cell()
-				;; .store_uint(hash, 256)
+				.store_uint(hash, 256)
 				.store_slice(cs);
 			
 			int stake = cs~load_grams();
@@ -104,11 +84,11 @@ slice i_address(tuple t) {
 			int list_f = 1;
 			do {
 				slice list_cs = sor_list.begin_parse();
+				int hash = list_cs~load_uint(256);
 				int stake = list_cs~load_grams();
 				int max_factor = list_cs~load_uint(24);
-				slice address = list_cs~load_msg_addr();
 
-				ps~tpush(participant_tuple(stake, max_factor, address));
+				ps~tpush([hash, stake, max_factor]);
 				total_stake += stake;
 
 				if (list_cs.slice_refs_empty?()) {
@@ -133,16 +113,13 @@ slice i_address(tuple t) {
 
 	int li = 4; ;; Last Index
 	while (li < count) {
-		int cur_min_stake = ps.at(li).i_stake();
+		int cur_min_stake = ps.at(li).at(1);
 
 		int cur_total = 0;
 		int i = 0;
 		while (i <= li) {
-			(int stake, int max_factor, _) = participant_break(ps.at(i));
-			int effective_stake = min(
-				stake,
-				cur_min_stake * max_factor / max_factor_denominator
-			);
+			(int hash, int stake, int max_factor) = untriple(ps.at(i));
+			int effective_stake = min(stake, cur_min_stake * max_factor / max_factor_denominator);
 			cur_total += effective_stake;
 
 			i += 1;
@@ -162,22 +139,20 @@ slice i_address(tuple t) {
 () recv_internal (int msg_value, cell full_message, slice in_msg_body) {
 	slice header_cs = full_message.begin_parse().skip_bits(4);
 	slice sender = header_cs~load_msg_addr();
-	;; (int sender_wc, int sender_hash) = sender.parse_std_addr(); ;; !! Sketchy, might not be correct
+	(int sender_wc, int sender_hash) = sender.parse_std_addr(); ;; !! Sketchy, might not be correct
 	;; throw_unless(66, sender_wc == -1);
-	int sender_hashed = sender.slice_hash();
 
 	(int op, int query_id) = (in_msg_body~load_uint(32), in_msg_body~load_uint(64));
 
 	(cell participants) = load_data();
 
 	if(op == 0x5ce28eea) { ;; participate
-		(slice cs, int f) = participants.udict_get?(256, sender_hashed);
+		(slice cs, int f) = participants.udict_get?(256, sender_hash);
 		
 		int stake = 0;
 		if (f) {
 			stake = cs~load_grams();
 			;; max_factor is going to be overwritten anyway
-			;; sender stays same
 		}
 		stake += msg_value;
 
@@ -186,8 +161,8 @@ slice i_address(tuple t) {
 		elseif (max_factor > 655360) { max_factor = 655360; }
 
 		participants~udict_set_builder(
-			256, sender_hashed,
-			begin_cell().store_grams(stake).store_uint(max_factor, 24).store_slice(sender)
+			256, sender_hash,
+			begin_cell().store_grams(stake).store_uint(max_factor, 24)
 		);
 	}
 
@@ -212,16 +187,16 @@ slice i_address(tuple t) {
 	save_data(participants);
 }
 
-;; slice hash_to_address(int hash) {
-;; 	return begin_cell()
-;; 		.store_uint(4, 3)
-;; 		.store_int(-1, 8)
-;; 		.store_uint(hash, 256)
-;; 	.end_cell().begin_parse();
-;; }
+slice hash_to_address(int hash) {
+	return begin_cell()
+		.store_uint(4, 3)
+		.store_int(-1, 8)
+		.store_uint(hash, 256)
+	.end_cell().begin_parse();
+}
 
-[slice, int] answer_entry(slice address, int amount) {
-	return [address, amount];
+[slice, int] answer_entry(int hash, int amount) {
+	return [hash_to_address(hash), amount];
 }
 
 ;; testable
@@ -233,29 +208,29 @@ slice i_address(tuple t) {
 	int count = ps.tuple_len();
 
 
-	int cur_min_stake = ps.at(opt_count - 1).i_stake();
+	int cur_min_stake = ps.at(opt_count - 1).at(1);
 
 	tuple winners = empty_tuple();
 	tuple unused = empty_tuple();
 
 	int i = 0;
 	while (i < opt_count) {
-		(int stake, int max_factor, slice address) = participant_break(ps.at(i));
+		(int hash, int stake, int max_factor) = untriple(ps.at(i));
 
 		int max_allowed_stake = cur_min_stake * max_factor / max_factor_denominator;
 		if (max_allowed_stake >= stake) {
-			winners~tpush(answer_entry(address, stake));
+			winners~tpush(answer_entry(hash, stake));
 		} else {
-			winners~tpush(answer_entry(address, max_allowed_stake));
-			unused~tpush(answer_entry(address, stake - max_allowed_stake));
+			winners~tpush(answer_entry(hash, max_allowed_stake));
+			unused~tpush(answer_entry(hash, stake - max_allowed_stake));
 		}
 
 		i += 1;
 	}
 
 	while (i < count) {
-		(int stake, _, slice address) = participant_break(ps.at(i));
-		unused~tpush(answer_entry(address, stake));
+		(int hash, int stake, _) = untriple(ps.at(i));
+		unused~tpush(answer_entry(hash, stake));
 		i += 1;
 	}
 
