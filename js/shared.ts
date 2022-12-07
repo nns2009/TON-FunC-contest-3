@@ -77,6 +77,23 @@ export const contractLoader = (...filenames: string[]) => {
 	}
 };
 
+export async function invokeGetMethodWithResultsAndLogs<T>(
+	contract: SmartContract,
+	method: string,
+	args: TVMStack,
+	opts?: { gasLimits?: GasLimits | undefined; } | undefined
+): Promise<[T, string[]]> {
+	const exres = await contract.invokeGetMethod(method, args, opts);
+	if (exres.type !== 'success' || exres.exit_code > 0) {
+		throw new Error(`exit_code = ${exres.exit_code}, ${exres.logs}`);
+	}
+
+	const { result } = exres;
+	const value = result as T;
+
+	return [value, exres.debugLogs];
+}
+
 export async function invokeGetMethodWithResults<T>(
 	contract: SmartContract,
 	method: string,
@@ -229,6 +246,8 @@ export const internalMessage = (
 		body: body ? new CellMessage(body) : undefined,
 	}),
 });
+
+export const dummyAddress = Address.parse('EQD4FPq-PRDieyQKkizFTRtSDyucUIqrj0v_zXJmqaDp6_0t');
 
 export const dummyInternalMessage = (body: Cell) => internalMessage(
 	Address.parse('EQBYivdc0GAk-nnczaMnYNuSjpeXu2nJS3DZ4KqLjosX5sVC'),

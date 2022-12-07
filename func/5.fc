@@ -86,9 +86,17 @@ slice i_address(tuple t) {
 			int stake = cs~load_grams();
 			int max_factor = cs~load_uint(24);
 
+			{
+				slice addr = cs~load_msg_addr();
+				(int wc, int addr_hash) = parse_std_addr(addr);
+				wc~dump();
+			}
+
 			(cell sor_list, int sor_f) = sorter.udict_get_ref?(sorter_key_len, stake);
 			if (sor_f) {
+				;; ~dump(next_list.end_cell());
 				next_list = next_list.store_ref(sor_list);
+				;; ~dump(next_list.end_cell());
 			}
 			sorter~udict_set_ref(sorter_key_len, stake, next_list.end_cell());
 		}
@@ -101,7 +109,7 @@ slice i_address(tuple t) {
 		if (sor_f) {
 			cell sor_list = sor_pre_list.preload_ref();
 
-			int list_f = 1;
+			int list_f = -1;
 			do {
 				slice list_cs = sor_list.begin_parse();
 				int stake = list_cs~load_grams();
@@ -110,6 +118,11 @@ slice i_address(tuple t) {
 
 				ps~tpush(participant_tuple(stake, max_factor, address));
 				total_stake += stake;
+
+				{
+					(int wc, int addr_hash) = parse_std_addr(address);
+					wc~dump();
+				}
 
 				if (list_cs.slice_refs_empty?()) {
 					list_f = 0;
@@ -232,6 +245,7 @@ slice i_address(tuple t) {
 	(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 	int count = ps.tuple_len();
 
+	ps~dump();
 
 	int cur_min_stake = ps.at(opt_count - 1).i_stake();
 
