@@ -5,74 +5,105 @@
 	Division result should be rounded down. It is guaranteed that tests do not contain division by zero.
 -}
 
+int tuple_len(tuple t) asm "TLEN";
+(tuple, int) ~tuple_pop(tuple t) asm "TPOP";
+
 global int char;
 global slice cs;
 
-(slice, int) ~load_char(slice cs2) {
-	if (cs2.slice_bits() < 8) {
-		cs2 = cs2.preload_ref().begin_parse();
+;; (slice, int) ~load_char(slice cs2) {
+;; 	if (cs2.slice_bits() < 8) {
+;; 		cs2 = cs2.preload_ref().begin_parse();
+;; 	}
+;; 	int c = cs2~load_uint(8);
+;; 	return (cs2, c);
+;; }
+
+() next_char() impure {
+	;; char = 0;
+
+	if (cs.slice_bits() < 8) {
+		if (cs.slice_refs_empty?()) {
+			char = 0; ;; expression end
+			return ();
+		}
+
+		cs = cs.preload_ref().begin_parse();
 	}
-	int c = cs2~load_uint(8);
-	return (cs2, c);
+
+	;; This stupid indirection is required for FunC compiler to work
+	(slice cs2, int char2) = cs.load_uint(8);
+	cs = cs2;
+	char = char2;
 }
 
-;; int expression() { return -1; }
+() print_char() impure {
+	int temp = char;
+	temp~dump();
+	temp~impure_touch();
+}
 
-int item() { return 5; }
-;; int item() {
-;; 	;; (<expression>)
-;; 	if (char == 40) { ;; '('
-;; 		char = cs~load_char();
-;; 		int v = expression();
-;; 		char = cs~load_char(); ;; skip ')';
-;; 		return v;
-;; 	}
+int expression() impure;
 
-;; 	;; constant
-;; 	{
-;; 		int v = 0;
-;; 		if ((48 <= char) & (char <= 57)) { ;; between '0' and '9'
-;; 			int d = char - 48;
-;; 			v = v * 10 + d;
-;; 			char = cs~load_char();
-;; 		}
-;; 		return v;
-;; 	}
-;; }
+;; int item() { return 5; }
+int item() impure {
+	;; (<expression>)
+	if (char == 40) { ;; '('
+		next_char();
+		int v = expression();
+		next_char(); ;; skip ')';
+		return v;
+	}
 
-int group() { return 6; }
-;; int group() {
-;; 	int v = item();
+	;; constant
+	{
+		int v = 0;
+		while ((48 <= char) & (char <= 57)) { ;; between '0' and '9'
+			int d = char - 48;
+			v = v * 10 + d;
+			next_char();
+		}
+		return v;
+	}
+}
 
-;; 	while ((char == 42) | (char == 47)) {
-;; 		if (char == 42) { ;; '*'
-;; 			char = cs~load_char();
-;; 			v *= item();
-;; 		}
+;; int group() { return 111; }
+int group() impure {
+	int v = item();
 
-;; 		if (char == 47) { ;; '/'
-;; 			char = cs~load_char();
-;; 			v /= item();
-;; 		}
-;; 	}
+	while ((char == 42) | (char == 47)) {
+		if (char == 42) { ;; '*'
+			next_char();
+			v *= item();
+		}
 
+		if (char == 47) { ;; '/'
+			next_char();
+			v /= item();
+		}
+	}
 
-;; 	return v;
-;; }
+	return v;
+}
 
-int expression() {
+int expression() impure {
 	int v = group();
 
+	;; char = 999999;
+	;; int temp = char;
+	;; dump_stack();
+	;; temp~impure_touch();
 	while ((char == 43) | (char == 45)) {
+		;; dump_stack();
+		;; next_char();
+		;; dump_stack();
 		if (char == 43) { ;; '+'
-			(slice cs2, int char2) = cs.load_uint(8); ;; cs.load_char();
-			cs = cs2;
-			char = char2;
+			next_char();
 			v += group();
 		}
 
 		if (char == 45) { ;; '-'
-			;; char = cs~load_char();
+			next_char();
 			v -= group();
 		}
 	}
@@ -80,11 +111,68 @@ int expression() {
 	return v;
 }
 
+builder print_int(builder b, int v) {
+	int is_zero = v == 0;
+
+	if (v < 0) {
+		b~store_uint(45, 8);
+		v = - v;
+	}
+
+	tuple t = empty_tuple();
+	if (is_zero) {
+		t~tpush(0);
+	} else {
+		while (v > 0) {
+			int d = v % 10;
+			v /= 10;
+			t~tpush(d);
+		}
+	}
+
+	t~dump();
+
+	repeat (t.tuple_len()) {
+		int d = t~tuple_pop();
+		b~store_uint(d + 48, 8);
+	}
+
+	return b;
+}
+
 ;; testable
 () recv_internal (cell message, slice in_msg_body) {
-	cs = in_msg_body;
-	cs = cs.skip_bits(8); ;; op=0
+	slice header = message.begin_parse();
+	header~skip_bits(4);
+	slice sender = header~load_msg_addr();
+
+	cs = in_msg_body.skip_bits(32); ;; op=0
+	next_char();
+	;; print_char();
 
 	int res = expression();
+	;; dump_stack();
 	res~dump();
+	~impure_touch(res);
+
+	var printed = begin_cell().print_int(res);
+	printed~dump();
+	~impure_touch(printed);
+
+	var msg = begin_cell()
+		.store_uint(0x18, 6)
+		.store_slice(sender)
+		.store_coins(0)
+		.store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+		.store_uint(0, 32) ;; comment message
+		.print_int(res)
+		.end_cell();
+	send_raw_message(msg, 64);
+}
+
+int evaluate(slice exp) method_id {
+	cs = exp.skip_bits(32); ;; op=0
+	next_char();
+	int res = expression();
+	return res;
 }
