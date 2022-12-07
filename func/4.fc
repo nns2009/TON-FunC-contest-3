@@ -18,6 +18,8 @@ int zhuk(int a, int b) method_id {
 	return a + b;
 }
 
+;; Code from:
+;; https://www.geeksforgeeks.org/multiplicative-inverse-under-modulo-m/
 int inverse_mod(int v, int mod) method_id
 {
     int m0 = mod;
