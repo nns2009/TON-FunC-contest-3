@@ -5,7 +5,86 @@
 	Division result should be rounded down. It is guaranteed that tests do not contain division by zero.
 -}
 
+global int char;
+global slice cs;
+
+(slice, int) ~load_char(slice cs2) {
+	if (cs2.slice_bits() < 8) {
+		cs2 = cs2.preload_ref().begin_parse();
+	}
+	int c = cs2~load_uint(8);
+	return (cs2, c);
+}
+
+;; int expression() { return -1; }
+
+int item() { return 5; }
+;; int item() {
+;; 	;; (<expression>)
+;; 	if (char == 40) { ;; '('
+;; 		char = cs~load_char();
+;; 		int v = expression();
+;; 		char = cs~load_char(); ;; skip ')';
+;; 		return v;
+;; 	}
+
+;; 	;; constant
+;; 	{
+;; 		int v = 0;
+;; 		if ((48 <= char) & (char <= 57)) { ;; between '0' and '9'
+;; 			int d = char - 48;
+;; 			v = v * 10 + d;
+;; 			char = cs~load_char();
+;; 		}
+;; 		return v;
+;; 	}
+;; }
+
+int group() { return 6; }
+;; int group() {
+;; 	int v = item();
+
+;; 	while ((char == 42) | (char == 47)) {
+;; 		if (char == 42) { ;; '*'
+;; 			char = cs~load_char();
+;; 			v *= item();
+;; 		}
+
+;; 		if (char == 47) { ;; '/'
+;; 			char = cs~load_char();
+;; 			v /= item();
+;; 		}
+;; 	}
+
+
+;; 	return v;
+;; }
+
+int expression() {
+	int v = group();
+
+	while ((char == 43) | (char == 45)) {
+		if (char == 43) { ;; '+'
+			(slice cs2, int char2) = cs.load_uint(8); ;; cs.load_char();
+			cs = cs2;
+			char = char2;
+			v += group();
+		}
+
+		if (char == 45) { ;; '-'
+			;; char = cs~load_char();
+			v -= group();
+		}
+	}
+
+	return v;
+}
+
 ;; testable
 () recv_internal (cell message, slice in_msg_body) {
-	;; Add code here
+	cs = in_msg_body;
+	cs = cs.skip_bits(8); ;; op=0
+
+	int res = expression();
+	res~dump();
 }
