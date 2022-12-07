@@ -26,8 +26,73 @@
 	(14, 14)         | (14,14); (5,3)
 -}
 
+(int, cell) load_data() {
+	slice cs = get_data().begin_parse();
+	if (cs.slice_empty?()) {
+		return (0, new_dict());
+	}
+	return (cs~load_uint(4), cs.preload_dict());
+}
+
+() save_data(int count, cell dict) impure {
+	set_data(begin_cell()
+		.store_uint(count, 4)
+		.store_dict(dict)
+		.end_cell()
+	);
+}
+
+() send_message(int value, cell msg) impure {
+	var msg = begin_cell()
+		.store_uint(0x18, 6)
+		.store_uint(0, 2) ;; addr_none .store_slice(addr)
+		.store_coins(value)
+		.store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1) ;; 1 - store body in reference
+		.store_ref(msg)
+		.end_cell();
+	send_raw_message(msg, 0);
+}
+
 ;; testable
 () recv_internal (slice in_msg_body) {
 	(int score, int value, cell msg) = (in_msg_body~load_uint(32), in_msg_body~load_coins(), in_msg_body~load_ref());
-	;; Add code here
+	
+	;; dict: score (uint32) -> VarUInteger16 + ^Cell
+	(int count, cell dict) = load_data();
+	dict~udict_set_builder(32, score, begin_cell().store_coins(value).store_ref(msg));
+	count += 1;
+
+	if (count >= 12) {
+		;; lv = Lowest Value
+		int lv_value = 115792089237316195423570985008687907853269984665640564039457584007913129639935; ;; 2**256 - 1
+		int lv_score = -1;
+		
+		int k = -1;
+		do {
+			(k, slice cs, int f) = dict.udict_get_next?(32, k);
+			if (f) {
+				int cur_value = cs~load_coins();
+				if (cur_value < lv_value) {
+					lv_value = cur_value;
+					lv_score = k;
+				}
+			}
+		} until (~ f);
+
+		;; hs = Highest Score
+		(int hs_score, slice hs_cs, _) = dict~udict::delete_get_max(32);
+		int hs_value = hs_cs~load_coins();
+		cell hs_msg = hs_cs.preload_ref();
+		send_message(hs_value, hs_msg);
+		count -= 1;
+
+		if (hs_score != lv_score) {
+			count -= 1;
+			(slice lv_cs, _) = dict~udict_delete_get?(32, lv_score);
+			cell lv_msg = lv_cs.preload_ref();
+			send_message(lv_value, lv_msg);
+		}
+	}
+
+	save_data(count, dict);
 }

@@ -54,13 +54,15 @@ export function bufferEqual(a: Buffer, b: Buffer): boolean {
 // ------------------------ Contract functions ------------------------
 
 export const contractLoader = (...filenames: string[]) => {
-	const compileResultPromise = compileFunc({
+	const compileConfig = {
 		sources: Object.fromEntries(
 			filenames.map(path =>
 				[path.split('/').at(-1), readString(path)]
 			)),
-		entryPoints: [filenames.at(-1)?.split('/').at(-1)!],
-	})
+		entryPoints: filenames.map(path => path.split('/').at(-1)!),
+	};
+	//console.log(compileConfig);
+	const compileResultPromise = compileFunc(compileConfig);
 
 	return async (dataCell: Cell) => {
 		const compileResult = await compileResultPromise;
