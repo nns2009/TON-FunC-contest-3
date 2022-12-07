@@ -28,7 +28,7 @@ int tuple_len(tuple t) asm "TLEN";
 ;; 120 should be enough as the max size of VarUInteger 16
 const sorter_key_len = 128;
 const sorter_upper_bound = 85070591730234615865843651857942052864; ;; 2 ** 126
-const factor_denominator = 65536;
+const max_factor_denominator = 65536;
 
 
 (cell) load_data() {
@@ -118,7 +118,7 @@ const factor_denominator = 65536;
 		int i = 0;
 		while (i <= li) {
 			(int hash, int stake, int max_factor) = untriple(ps.at(i));
-			int effective_stake = min(stake, cur_min_stake * max_factor / factor_denominator);
+			int effective_stake = min(stake, cur_min_stake * max_factor / max_factor_denominator);
 			cur_total += effective_stake;
 
 			i += 1;
@@ -138,7 +138,8 @@ const factor_denominator = 65536;
 () recv_internal (int msg_value, cell full_message, slice in_msg_body) {
 	slice header_cs = full_message.begin_parse().skip_bits(4);
 	slice sender = header_cs~load_msg_addr();
-	(_, int sender_hash) = sender.parse_std_addr(); ;; !! Sketchy, might not be correct
+	(int sender_wc, int sender_hash) = sender.parse_std_addr(); ;; !! Sketchy, might not be correct
+	throw_unless(66, sender_wc == -1);
 
 	(int op, int query_id) = (in_msg_body~load_uint(32), in_msg_body~load_uint(64));
 
@@ -188,7 +189,7 @@ const factor_denominator = 65536;
 slice hash_to_address(int hash) {
 	return begin_cell()
 		.store_uint(4, 3)
-		.store_uint(0, 8)
+		.store_int(-1, 8)
 		.store_uint(hash, 256)
 	.end_cell().begin_parse();
 }
@@ -211,12 +212,11 @@ slice hash_to_address(int hash) {
 	tuple winners = empty_tuple();
 	tuple unused = empty_tuple();
 
-	int cur_total = 0;
 	int i = 0;
 	while (i < opt_count) {
 		(int hash, int stake, int max_factor) = untriple(ps.at(i));
 
-		int max_allowed_stake = cur_min_stake * max_factor / factor_denominator;
+		int max_allowed_stake = cur_min_stake * max_factor / max_factor_denominator;
 		if (max_allowed_stake >= stake) {
 			winners~tpush(answer_entry(hash, stake));
 		} else {
