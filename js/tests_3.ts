@@ -17,8 +17,8 @@ async function testExpression(expression: string) {
 		dummyInternalMessage(messageBody)
 	);
 
-	console.log(`Correct:`, eval(expression));
-	//console.log(executionResult);
+	const answerEvaled = eval(expression);
+	//console.log(executionResult.debugLogs);
 
 	if (executionResult.actionList.length === 0) {
 		throw new Error(`No messages send while processing expression: ${expression}`);
@@ -46,7 +46,7 @@ async function testExpression(expression: string) {
 		throw new Error(`Reply's body op_code should equal 0 (comment message)`);
 	}
 	const replyComment = cs.readRemainingBytes().toString('ascii');
-	console.log(replyComment);
+	console.log(`Reply: ${replyComment}, expression eval'ed: ${answerEvaled}`);
 
 	const replyValue = int(replyComment);
 }

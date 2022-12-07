@@ -8,20 +8,12 @@
 int tuple_len(tuple t) asm "TLEN";
 (tuple, int) ~tuple_pop(tuple t) asm "TPOP";
 
+
 global int char;
 global slice cs;
 
-;; (slice, int) ~load_char(slice cs2) {
-;; 	if (cs2.slice_bits() < 8) {
-;; 		cs2 = cs2.preload_ref().begin_parse();
-;; 	}
-;; 	int c = cs2~load_uint(8);
-;; 	return (cs2, c);
-;; }
 
 () next_char() impure {
-	;; char = 0;
-
 	if (cs.slice_bits() < 8) {
 		if (cs.slice_refs_empty?()) {
 			char = 0; ;; expression end
@@ -75,9 +67,7 @@ int group() impure {
 		if (char == 42) { ;; '*'
 			next_char();
 			v *= item();
-		}
-
-		if (char == 47) { ;; '/'
+		} else { ;; '/'
 			next_char();
 			v /= item();
 		}
@@ -89,20 +79,11 @@ int group() impure {
 int expression() impure {
 	int v = group();
 
-	;; char = 999999;
-	;; int temp = char;
-	;; dump_stack();
-	;; temp~impure_touch();
 	while ((char == 43) | (char == 45)) {
-		;; dump_stack();
-		;; next_char();
-		;; dump_stack();
 		if (char == 43) { ;; '+'
 			next_char();
 			v += group();
-		}
-
-		if (char == 45) { ;; '-'
+		} else { ;; '-'
 			next_char();
 			v -= group();
 		}
@@ -130,8 +111,7 @@ builder print_int(builder b, int v) {
 		}
 	}
 
-	t~dump();
-
+	;; t~dump();
 	repeat (t.tuple_len()) {
 		int d = t~tuple_pop();
 		b~store_uint(d + 48, 8);
@@ -151,13 +131,6 @@ builder print_int(builder b, int v) {
 	;; print_char();
 
 	int res = expression();
-	;; dump_stack();
-	res~dump();
-	~impure_touch(res);
-
-	var printed = begin_cell().print_int(res);
-	printed~dump();
-	~impure_touch(printed);
 
 	var msg = begin_cell()
 		.store_uint(0x18, 6)
@@ -168,11 +141,4 @@ builder print_int(builder b, int v) {
 		.print_int(res)
 		.end_cell();
 	send_raw_message(msg, 64);
-}
-
-int evaluate(slice exp) method_id {
-	cs = exp.skip_bits(32); ;; op=0
-	next_char();
-	int res = expression();
-	return res;
 }
