@@ -93,7 +93,7 @@ async function testElection(...requests: ParticipateRequest[]) {
 		if (action.type !== 'send_msg') {
 			throw new Error(`Action by contract is not 'send_msg'`);
 		}
-		if (action.mode !== 0) {
+		if (action.mode !== 64) {
 			throw new Error(`Message send by contract with wrong mode (${action.mode}), expected mode=64`);
 		}
 
@@ -134,6 +134,7 @@ async function testElection(...requests: ParticipateRequest[]) {
 		console.log('unused:', unused);
 
 		console.log('logs:', stakeTableLogs);
+		console.log('try_elect.gas:', electResult.gas_consumed);
 	}
 	
 	console.log()
@@ -146,19 +147,27 @@ async function testElection(...requests: ParticipateRequest[]) {
 // 	{ wc: 12, addrHash: 1000, stake: 100, maxFactor: factor_denominator * 2 },
 // );
 
-await testElection(
-	{ wc: 1, addrHash: 1001, stake: 100, maxFactor: 1 },
-	{ wc: 1, addrHash: 1002, stake: 100, maxFactor: factor_denominator },
-	{ wc: 1, addrHash: 1003, stake: 100, maxFactor: 1 },
-	{ wc: 1, addrHash: 1004, stake: 100, maxFactor: 2 },
-
-	{ wc: 1, addrHash: 1005, stake: 30, maxFactor: factor_denominator * 100 },
-	{ wc: 1, addrHash: 1005, stake: 50, maxFactor: factor_denominator * 90 },
-	{ wc: 1, addrHash: 1005, stake: 20, maxFactor: factor_denominator * 2 },
-
-	{ wc: 3, addrHash: 3001, stake: 50, maxFactor: 10 },
-	{ wc: 3, addrHash: 3001, stake: 35, maxFactor: 10 },
-);
+try {
+	await testElection(
+		{ wc: 1, addrHash: 1001, stake: 100, maxFactor: 1 },
+		{ wc: 1, addrHash: 1002, stake: 100, maxFactor: factor_denominator },
+		{ wc: 1, addrHash: 1003, stake: 100, maxFactor: 1 },
+		{ wc: 1, addrHash: 1004, stake: 100, maxFactor: 2 },
+	
+		{ wc: 1, addrHash: 1005, stake: 30, maxFactor: factor_denominator * 100 },
+		{ wc: 1, addrHash: 1005, stake: 50, maxFactor: factor_denominator * 90 },
+		{ wc: 1, addrHash: 1005, stake: 20, maxFactor: factor_denominator * 2 },
+	
+		{ wc: 3, addrHash: 3001, stake: 50, maxFactor: 10 },
+		{ wc: 3, addrHash: 3001, stake: 35, maxFactor: 10 },
+	);
+} catch (ex) {
+	console.error('Error:', ex);
+}
+// await testElection(
+// 	...Array(5).fill(null).map((_, i) => ({ wc: i + 100, addrHash: i, stake: 100, maxFactor: factor_denominator })),
+// 	...Array(100).fill(null).map((_, i) => ({ wc: i, addrHash: i, stake: 10, maxFactor: factor_denominator })),
+// );
 
 // await testElection(
 // 	{ wc: 5, addrHash: 5000, stake: 500, maxFactor: factor_denominator * 2 },

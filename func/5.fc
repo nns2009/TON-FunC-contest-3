@@ -74,11 +74,22 @@ slice i_address(tuple t) {
 	);
 }
 
+(cell, int) udict_get_ref?fixed(cell dict, int key_len, int index) asm(index dict key_len) "DICTUGETREF" "NULLSWAPIFNOT";
+
+
 (tuple, int) sort_participants_into_tuple(cell participants) {
 	tuple ps = empty_tuple();
 	int total_stake = 0;
 
 	cell sorter = new_dict();
+
+	;; Gas-Hook here: 21 702 370
+	;; int testCount = 100000;
+	;; int testI = 0;
+	;; while (testI < testCount) {
+	;; 	testI += 1;
+	;; }
+	;; total_stake += testI - testCount;
 
 	int hash = -1;
 	do {
@@ -98,17 +109,28 @@ slice i_address(tuple t) {
 			;; 	wc~dump();
 			;; }
 
-			(cell sor_list, int sor_f) = sorter.udict_get_ref?(sorter_key_len, stake);
+			(cell sor_list, int sor_f) = sorter.udict_get_ref?fixed(sorter_key_len, stake);
 			if (sor_f) {
 				;; ~dump(next_list.end_cell());
 				next_list = next_list.store_ref(sor_list);
 				;; ~dump(next_list.end_cell());
 			}
+			sor_list~impure_touch();
+			sor_f~impure_touch();
+			
 			sorter~udict_set_ref(sorter_key_len, stake, next_list.end_cell());
 		}
 	} until (~ f);
 
 	int stake = sorter_upper_bound;
+	;; Gas-Hook here: 7 302 090
+	int testCount = 100000;
+	int testI = 0;
+	while (testI < testCount) {
+		testI += 1;
+	}
+	stake += testI - testCount;
+
 	do {
 		(stake, slice sor_pre_list, int sor_f) = sorter.udict_get_prev?(sorter_key_len, stake);
 		
@@ -138,6 +160,14 @@ slice i_address(tuple t) {
 			} until (~ list_f);
 		}
 	} until (~ sor_f);
+
+	;; Gas-Hook here: 7302082
+	;; int testCount = 100000;
+	;; int testI = 0;
+	;; while (testI < testCount) {
+	;; 	testI += 1;
+	;; }
+	;; stake += testI - testCount;
 
 	return (ps, total_stake);
 }
@@ -212,7 +242,18 @@ slice i_address(tuple t) {
 	}
 
 	if(op == 0x207fa5f5) { ;; try_elect
+		;; Gas-Hook here: 21 702 558
+
 		(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
+
+		;; Gas-Hook here: 7 302 126
+		;; int testCount = 100000;
+		;; int testI = 0;
+		;; while (testI < testCount) {
+		;; 	testI += 1;
+		;; }
+		;; query_id += testI - testCount;
+
 		;; if (ps.tuple_len() >= 5) {
 		;; 	throw(77);
 		;; } else {
@@ -232,6 +273,8 @@ slice i_address(tuple t) {
 		;; }
 		(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 
+		;; Gas-Hook here: 101 910
+
 		var msg = begin_cell()
 			.store_uint(0x18, 6)
 			.store_slice(sender)
@@ -247,7 +290,7 @@ slice i_address(tuple t) {
 				.end_cell()
 			)
 			.end_cell();
-		send_raw_message(msg, 0);
+		send_raw_message(msg, 64);
 	}
 
 	save_data(participants);
