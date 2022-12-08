@@ -162,6 +162,7 @@ cell restore() impure {
 			.store_coins(0)
 			.store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
 			.store_ref(full)
+			;; .store_ref(begin_cell().store_ref(full).end_cell())
 			.end_cell();
 		send_raw_message(msg, 0);
 
