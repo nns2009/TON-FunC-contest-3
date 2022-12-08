@@ -24,7 +24,7 @@ const int groups_dict_len = 10; ;; Should store up to 255 entries, but let's be 
 const int command_len = 3;
 const int bitslen_len = 10; ;; bitslen from 0 to 1023 (inclusive) - covers all cases
 
-const int create_builder_code = 3;
+const int create_builder_code = 4;
 ;; const int push_ref_code = 2;
 ;; const int push_bits_code = 3;
 const int end_builder_code = 5;
@@ -58,6 +58,8 @@ global cell in_cells;
 global slice in_cs;
 
 () read_structure_advance(int len) impure {
+	;; dump_stack();
+	;; len~dump();
 	if (in_cs.slice_bits() < len) {
 		if (in_cs.slice_refs_empty?()) {
 			in_cells_index += 1;
@@ -99,10 +101,12 @@ slice read_bits() impure {
 
 
 cell restore() impure {
+	~dump(100300500);
 	builder b = begin_cell();
 
 	do {
 		int op_code = read_op_code();
+		op_code~dump();
 
 		int leave = 0;
 		if (op_code == create_builder_code) {
@@ -117,6 +121,10 @@ cell restore() impure {
 		}
 	} until (leave);
 
+	;; cell res = b.end_cell();
+	;; res~dump();
+
+	~dump(100300999);
 	return b.end_cell();
 	;; unreachable, but stupid FunC compiler complanes about return type
 }
@@ -145,6 +153,7 @@ cell restore() impure {
 			in_cs = group.begin_parse();
 		}
 
+		read_op_code(); ;; Skip the first instruction, it should always be "create_builder"
 		cell full = restore();
 
 		var msg = begin_cell()

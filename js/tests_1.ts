@@ -9,10 +9,13 @@ let compiledSources = contractLoader('./../func/stdlib.fc', './../func/1.fc');
 
 
 async function testCell(bigCell: Cell) {
+	console.log('---------------------');
+
 	let contract = await compiledSources(cell());
 
 	const destination = dummyAddress;
 
+	console.log('--------- decomposite ---------');
 	const [groups, logs] = await invokeGetMethod1ResultAndLogs<Cell[]>(
 		contract, 'decomposite', 
 		[stackCell(bigCell), stackSlice(saddress(destination))]
@@ -21,16 +24,20 @@ async function testCell(bigCell: Cell) {
 	console.log('logs:', logs);
 	console.log('groups:', groups);
 
+	console.log('--------- reassembly ---------');
+
 	for (let i = 0; i < groups.length; i++) {
 		const group = groups[i];
-		console.log(`Group ${i}: len=${group.beginParse().remaining}, bits:${group.bits}`);
+		console.log(`Group ${i}: len=${group.beginParse().remaining}`); //, bits:${group.bits}`);
 
 		const isLastGroup = i + 1 === groups.length;
 
 		const assembleResult = await contract.sendInternalMessage(dummyInternalMessage(group));
 
+		console.info(assembleResult.debugLogs);
+
 		if (assembleResult.type !== 'success') {
-			throw new Error(`Group ${i}: recv_internal should always succeed = not throw`);
+			throw new Error(`Group ${i}: recv_internal should always succeed = not throw, exit_code=${assembleResult.exit_code}`);
 		}
 
 		if (!isLastGroup) {
@@ -54,6 +61,10 @@ async function testCell(bigCell: Cell) {
 		if (action.mode !== 0) {
 			throw new Error(`Group ${i}: Message send by contract with wrong mode (${action.mode}), expected mode=0`);
 		}
+
+		const restoredCell = action.message.body;
+		console.log('original:', bigCell);
+		console.log('restored:', restoredCell);
 	}
 
 	console.log()
@@ -61,9 +72,6 @@ async function testCell(bigCell: Cell) {
 
 
 
-await testCell(cell());
-
-// await testCell(cell(
-// 	suint(5, 40),
-// ));
+// await testCell(cell());
+await testCell(cell(suint(5, 40), suint(13, 24)));
 
