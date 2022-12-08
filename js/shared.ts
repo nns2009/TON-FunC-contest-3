@@ -120,6 +120,15 @@ export async function invokeGetMethod1Result<T>(
 	const results = await invokeGetMethodWithResults<[T]>(contract, method, args, opts);
 	return results[0];
 }
+export async function invokeGetMethod1ResultAndLogs<T>(
+	contract: SmartContract,
+	method: string,
+	args: TVMStack,
+	opts?: { gasLimits?: GasLimits | undefined; } | undefined
+): Promise<[T, string[]]> {
+	const [results, logs] = await invokeGetMethodWithResultsAndLogs<[T]>(contract, method, args, opts);
+	return [results[0], logs];
+}
 
 
 

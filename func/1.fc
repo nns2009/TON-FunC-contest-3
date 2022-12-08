@@ -98,11 +98,10 @@ slice read_bits() impure {
 }
 
 
-cell restore() impure;
 cell restore() impure {
 	builder b = begin_cell();
 
-	while (true) {
+	do {
 		int op_code = read_op_code();
 
 		int leave = 0;
@@ -113,12 +112,13 @@ cell restore() impure {
 		elseif (op_code == end_builder_code) {
 			slice bits = read_bits();
 			b = b.store_slice(bits);
-			return b.end_cell();
+			;; return b.end_cell();
+			leave = 1;
 		}
-	}
+	} until (leave);
 
+	return b.end_cell();
 	;; unreachable, but stupid FunC compiler complanes about return type
-	return begin_cell().end_cell(); ;; null();
 }
 
 
@@ -251,13 +251,14 @@ builder write_structure_advance(int len) impure {
 
 
 () flatten(cell c) impure {
-	slice cs = c.begin_parse();
-
 	create_builder();
+
+	slice cs = c.begin_parse();
 	while (~ cs.slice_refs_empty?()) {
 		cell child = cs~load_ref();
 		flatten(child);
 	}
+
 	end_builder(cs);
 }
 
@@ -268,6 +269,8 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 	out_cells = empty_tuple();
 	flatten(big_cell);
 	collapse_remaining_builders();
+
+	;; return out_cells;
 
 	tuple res_cells = empty_tuple();
 

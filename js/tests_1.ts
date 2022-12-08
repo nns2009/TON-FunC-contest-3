@@ -2,7 +2,7 @@ import BN from 'bn.js';
 import { Address, Cell, CommentMessage, Slice } from 'ton';
 import { stackCell, stackSlice } from 'ton-contract-executor';
 
-import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, saddress } from './shared.js';
+import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, saddress, invokeGetMethod1ResultAndLogs } from './shared.js';
 
 
 let compiledSources = contractLoader('./../func/stdlib.fc', './../func/1.fc');
@@ -13,12 +13,13 @@ async function testCell(bigCell: Cell) {
 
 	const destination = dummyAddress;
 
-	const groups = await invokeGetMethod1Result<Cell[]>(
+	const [groups, logs] = await invokeGetMethod1ResultAndLogs<Cell[]>(
 		contract, 'decomposite', 
 		[stackCell(bigCell), stackSlice(saddress(destination))]
 	);
 
-	console.log(groups);
+	console.log('logs:', logs);
+	console.log('groups:', groups);
 
 	// const assembleResult = await contract.sendInternalMessage(dummyInternalMessage(cell()));
 
@@ -43,7 +44,11 @@ async function testCell(bigCell: Cell) {
 	console.log()
 }
 
-await testCell(cell(
-	suint(5, 40),
-));
+
+
+await testCell(cell());
+
+// await testCell(cell(
+// 	suint(5, 40),
+// ));
 
