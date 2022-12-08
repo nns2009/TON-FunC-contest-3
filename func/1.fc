@@ -8,7 +8,7 @@
 
 
 int tuple_len(tuple t) asm "TLEN";
-(tuple, int) ~tuple_pop(tuple t) asm "TPOP";
+forall X -> (tuple, X) tuple_pop(tuple t) asm "TPOP";
 
 (cell, int) udict_get_ref?fixed(cell dict, int key_len, int index) asm(index dict key_len) "DICTUGETREF" "NULLSWAPIFNOT";
 
@@ -57,7 +57,7 @@ global int in_cells_index;
 global cell in_cells; 
 global slice in_cs;
 
-int read_structure_advance(int len) impure {
+() read_structure_advance(int len) impure {
 	if (in_cs.slice_bits() < len) {
 		if (in_cs.slice_refs_empty?()) {
 			in_cells_index += 1;
@@ -75,13 +75,17 @@ int read_structure_advance(int len) impure {
 
 int read_uint(int len) impure {
 	read_structure_advance(len);
-	int res = in_cs~load_uint(len);
+	(slice ncs, int res) = in_cs.load_uint(len);
+	in_cs = ncs;
+	;; int res = in_cs~load_uint(len);
 	return res;
 }
 ;; No <function templating> in FunC => copy-paste :(
 slice read_slice(int len) impure {
 	read_structure_advance(len);
-	slice res = in_cs~load_slice(len);
+	(slice ncs, slice res) = in_cs.load_bits(len);
+	in_cs = ncs;
+	;; slice res = in_cs~load_slice(len);
 	return res;
 }
 
@@ -94,6 +98,7 @@ slice read_bits() impure {
 }
 
 
+cell restore() impure;
 cell restore() impure {
 	builder b = begin_cell();
 
@@ -103,15 +108,17 @@ cell restore() impure {
 		int leave = 0;
 		if (op_code == create_builder_code) {
 			cell child = restore();
-			b~store_ref(child);
+			b = b.store_ref(child);
 		}
 		elseif (op_code == end_builder_code) {
 			slice bits = read_bits();
-			b~store_slice(bits);
+			b = b.store_slice(bits);
 			return b.end_cell();
 		}
 	}
-	;; unreachable
+
+	;; unreachable, but stupid FunC compiler complanes about return type
+	return begin_cell().end_cell(); ;; null();
 }
 
 
@@ -133,7 +140,7 @@ cell restore() impure {
 		in_cells_index = 0;
 		in_cells = groups;
 		{
-			(cell group, int f) = groups~udict_get_ref?fixed(groups_dict_len, 0);
+			(cell group, int f) = groups.udict_get_ref?fixed(groups_dict_len, 0);
 			;; f has to be "true", because we are iterating through "known" indexes
 			in_cs = group.begin_parse();
 		}
@@ -142,7 +149,7 @@ cell restore() impure {
 
 		var msg = begin_cell()
 			.store_uint(0x18, 6)
-			.store_slice(sender)
+			.store_slice(destination)
 			.store_coins(0)
 			.store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
 			.store_ref(full)
@@ -151,7 +158,7 @@ cell restore() impure {
 
 		;; int i = 0;
 		;; while (i < group_count) {
-		;; 	(cell group, int f) = groups~udict_get_ref?fixed(groups_dict_len, i);
+		;; 	(cell group, int f) = groups.udict_get_ref?fixed(groups_dict_len, i);
 		;; 	;; f has to be "true", because we are iterating through "known" indexes
 		;; 	process_group(group);
 
@@ -165,21 +172,32 @@ cell restore() impure {
 
 
 
-global tuple bs;
+global tuple bs; ;; BuilderS
 global tuple out_cells;
+
+
+builder bs_pop() impure {
+	(tuple nbs, builder res) = bs.tuple_pop();
+	bs = nbs;
+	return res;
+}
+
+;; () out_cells_push(cell c) impure {
+;; 	out_cells = out_cells.tpush(c);
+;; }
 
 
 ;; 'bs' length has to be >= 1 !
 () collapse_builders() impure {
-	builder inner = bs~tpop();
+	builder inner = bs_pop();
 
 	cell c = inner.end_cell();
 	repeat (bs.tuple_len()) {
-		builder b = bs~tpop();
+		builder b = bs_pop();
 		c = b.store_ref(c).end_cell();
 	}
 
-	out_cells~tpush(c);
+	out_cells = out_cells.tpush(c);
 }
 () collapse_remaining_builders() impure {
 	;; Actually, it seems like it should always be true:
@@ -194,10 +212,10 @@ global tuple out_cells;
 }
 
 
-int write_structure_advance(int len) impure {
-	builder b = bs~tuple_pop();
+builder write_structure_advance(int len) impure {
+	builder b = bs_pop();
 	if (b.builder_bits() + len > Cell_Max_Bits) {
-		bs~tpush(b);
+		bs = bs.tpush(b);
 		maybe_collapse_builders();
 		b = begin_cell();
 	}
@@ -206,12 +224,12 @@ int write_structure_advance(int len) impure {
 () write_uint(int v, int len) impure {
 	builder b = write_structure_advance(len);
 	b~store_uint(v, len);
-	bs~tpush(b);
+	bs = bs.tpush(b);
 }
 () write_slice(slice bits) impure {
 	builder b = write_structure_advance(bits.slice_bits());
-	b~store_slice(bits);
-	bs~tpush(b);
+	b = b.store_slice(bits);
+	bs = bs.tpush(b);
 }
 
 
@@ -236,7 +254,7 @@ int write_structure_advance(int len) impure {
 	slice cs = c.begin_parse();
 
 	create_builder();
-	while (~ cs.slice_refs_empty()) {
+	while (~ cs.slice_refs_empty?()) {
 		cell child = cs~load_ref();
 		flatten(child);
 	}
@@ -245,12 +263,13 @@ int write_structure_advance(int len) impure {
 
 ;; testable
 tuple decomposite (cell big_cell, slice destination_address) method_id {
-	bs = [begin_cell()];
-	out_cells = [];
+	bs = empty_tuple(); ;; Stupid compiler doesn't accept [begin_cell()]
+	bs = bs.tpush(begin_cell());
+	out_cells = empty_tuple();
 	flatten(big_cell);
 	collapse_remaining_builders();
 
-	tuple res_cells = [];
+	tuple res_cells = empty_tuple();
 
 	int group_count = bs.tuple_len();
 	int last_i = group_count - 1;

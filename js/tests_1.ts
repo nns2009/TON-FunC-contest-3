@@ -1,38 +1,49 @@
-import BN from "bn.js";
-import { contractLoader, cell } from './shared.js';
+import BN from 'bn.js';
+import { Address, Cell, CommentMessage, Slice } from 'ton';
+import { stackCell, stackSlice } from 'ton-contract-executor';
+
+import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, saddress } from './shared.js';
 
 
+let compiledSources = contractLoader('./../func/stdlib.fc', './../func/1.fc');
 
 
+async function testCell(bigCell: Cell) {
+	let contract = await compiledSources(cell());
 
-let initialData = cell();
-let contract = await contractLoader('./../func/1.fc')(initialData);
+	const destination = dummyAddress;
 
+	const groups = await invokeGetMethod1Result<Cell[]>(
+		contract, 'decomposite', 
+		[stackCell(bigCell), stackSlice(saddress(destination))]
+	);
 
-async function testGdc(a: number, b: number, expectedResult: number) {
-	const exres = await contract.invokeGetMethod('gcd', [
-		{ type: 'int', value: a.toString() },
-		{ type: 'int', value: b.toString() },
-	]);
-	if (exres.type !== 'success' || exres.exit_code > 0) {
-		throw new Error(`exit_code = ${exres.exit_code}`);
-	}
+	console.log(groups);
 
-	const { result } = exres;
+	// const assembleResult = await contract.sendInternalMessage(dummyInternalMessage(cell()));
 
-	const res = result[0] as BN;
-	if (!res.eqn(expectedResult)) {
-		throw new Error(`Incorrect value, expected: ${expectedResult.toString(10)}, found: ${res.toString(10)}`);
-	}
-	console.log(`testGdc() passed, value = ${res.toString(10)}`);
+	// if (assembleResult.type !== 'success') {
+	// 	throw new Error(`Big cell reassembly should have suceeded`);
+	// }
+	// if (assembleResult.actionList.length === 0) {
+	// 	throw new Error(`No messages send `);
+	// }
+	// if (assembleResult.actionList.length > 1) {
+	// 	throw new Error(`More than one action send by try_elect`);
+	// }
+	// const action = assembleResult.actionList[0];
+	// if (action.type !== 'send_msg') {
+	// 	throw new Error(`Action by contract is not 'send_msg'`);
+	// }
+	// if (action.mode !== 64) {
+	// 	throw new Error(`Message send by contract with wrong mode (${action.mode}), expected mode=64`);
+	// }
+
+	
+	console.log()
 }
 
-
-await testGdc(20, 6, 2);
-await testGdc(9, 8, 1);
-await testGdc(100, 10, 10);
-await testGdc(10, 100, 10);
-await testGdc(16, 9, 1);
-await testGdc(48, 18, 6);
-await testGdc(20, 50, 10);
+await testCell(cell(
+	suint(5, 40),
+));
 
