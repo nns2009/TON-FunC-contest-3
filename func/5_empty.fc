@@ -1,0 +1,8 @@
+;; testable
+() recv_internal (int msg_value, cell full_message, slice in_msg_body) { }
+
+forall X -> tuple tuple_from_one(X x) asm "SINGLE";
+;; testable
+(tuple, tuple) get_stake_table() method_id {
+	return (tuple_from_one(234), tuple_from_one(567));
+}

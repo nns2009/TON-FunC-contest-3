@@ -8,8 +8,14 @@
 			II) for each participant A in the list, the ratio of A's `effective_stake` to the `effective_stake` of participant with the smallest stake `effective_stake` should be equal or less to A's max_factor/65536 (in other words, max_factor is 65536 based rational number).
 			III) Under conditions I and II, total effective stake (sum of `effective_stake` of all winners) should be maximal.
 
-		If it is not possible to form a list, contract should throw. Otherwise, it should respond with 
-		`success#eefa5ea4 query_id:uint64 total_winners:uint32 total_effective_stake:(VarUInteger 16) unused_stake:(VarUInteger 16) = InternalMsgBody;` (query_id matched that in try_elect)
+		If it is not possible to form a list, contract should throw.
+		Otherwise, it should respond with 
+		`success#eefa5ea4
+			query_id:uint64
+			total_winners:uint32
+			total_effective_stake:(VarUInteger 16)
+			unused_stake:(VarUInteger 16) = InternalMsgBody;`
+			(query_id matched that in try_elect)
 
 		After responding with `success` message, contract's get_method `get_stake_table` should return two tuples with winners and "unused funds", this tuples should contain exactly the same number of elements as there are winners/participants-with-unused-funds (NOT lisp-style lists), each element should be in format [address-as-a-slice, stake-as-number].  Note that if participants' stake is not fully used, it will be presented in both tuples. For instance, possible result of get_stake_table can be `
 		(["Ef8RERERERERERERERERERERERERERERERERERERERERERlb"a, 10], ["Ef8iIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiImKK"a, 1], 
@@ -86,11 +92,11 @@ slice i_address(tuple t) {
 			int stake = cs~load_grams();
 			int max_factor = cs~load_uint(24);
 
-			{
-				slice addr = cs~load_msg_addr();
-				(int wc, int addr_hash) = parse_std_addr(addr);
-				wc~dump();
-			}
+			;; {
+			;; 	slice addr = cs~load_msg_addr();
+			;; 	(int wc, int addr_hash) = parse_std_addr(addr);
+			;; 	wc~dump();
+			;; }
 
 			(cell sor_list, int sor_f) = sorter.udict_get_ref?(sorter_key_len, stake);
 			if (sor_f) {
@@ -119,10 +125,10 @@ slice i_address(tuple t) {
 				ps~tpush(participant_tuple(stake, max_factor, address));
 				total_stake += stake;
 
-				{
-					(int wc, int addr_hash) = parse_std_addr(address);
-					wc~dump();
-				}
+				;; {
+				;; 	(int wc, int addr_hash) = parse_std_addr(address);
+				;; 	;; wc~dump();
+				;; }
 
 				if (list_cs.slice_refs_empty?()) {
 					list_f = 0;
@@ -173,6 +179,7 @@ slice i_address(tuple t) {
 
 ;; testable
 () recv_internal (int msg_value, cell full_message, slice in_msg_body) {
+	;; return ();
 	slice header_cs = full_message.begin_parse().skip_bits(4);
 	slice sender = header_cs~load_msg_addr();
 	;; (int sender_wc, int sender_hash) = sender.parse_std_addr(); ;; !! Sketchy, might not be correct
@@ -206,20 +213,41 @@ slice i_address(tuple t) {
 
 	if(op == 0x207fa5f5) { ;; try_elect
 		(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
+		;; if (ps.tuple_len() >= 5) {
+		;; 	throw(77);
+		;; } else {
+		;; 	var msg = begin_cell()
+		;; 		.store_uint(0x18, 6)
+		;; 		.store_slice(sender)
+		;; 		.store_coins(0)
+		;; 		.store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+		;; 		.store_uint(0xeefa5ea4, 32) ;; success op_code
+		;; 		.store_uint(query_id, 64)
+		;; 		.store_uint(45, 32)
+		;; 		.store_grams(699)
+		;; 		.store_grams(344) ;; unused_stake
+		;; 		.end_cell();
+		;; 	send_raw_message(msg, 64);
+		;; 	return ();
+		;; }
 		(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 
 		var msg = begin_cell()
 			.store_uint(0x18, 6)
 			.store_slice(sender)
 			.store_coins(0)
-			.store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-			.store_uint(0xeefa5ea4, 32) ;; success op_code
-			.store_uint(query_id, 64)
-			.store_uint(opt_count, 32)
-			.store_grams(opt_effective_total)
-			.store_grams(total_stake - opt_effective_total) ;; unused_stake
+			.store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+			.store_ref(
+				begin_cell()
+				.store_uint(0xeefa5ea4, 32) ;; success op_code
+				.store_uint(query_id, 64)
+				.store_uint(opt_count, 32)
+				.store_grams(opt_effective_total)
+				.store_grams(total_stake - opt_effective_total) ;; unused_stake
+				.end_cell()
+			)
 			.end_cell();
-		send_raw_message(msg, 64);
+		send_raw_message(msg, 0);
 	}
 
 	save_data(participants);
@@ -237,15 +265,18 @@ slice i_address(tuple t) {
 	return [address, amount];
 }
 
+forall X -> tuple tuple_from_one(X x) asm "SINGLE";
 ;; testable
 (tuple, tuple) get_stake_table() method_id {
+	;; return (tuple_from_one(45), tuple_from_one(56));
+
 	(cell participants) = load_data();
 
 	(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
 	(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 	int count = ps.tuple_len();
 
-	ps~dump();
+	;; ps~dump();
 
 	int cur_min_stake = ps.at(opt_count - 1).i_stake();
 
@@ -261,6 +292,7 @@ slice i_address(tuple t) {
 			winners~tpush(answer_entry(address, stake));
 		} else {
 			winners~tpush(answer_entry(address, max_allowed_stake));
+			;; unused~tpush(answer_entry(address, max_allowed_stake));
 			unused~tpush(answer_entry(address, stake - max_allowed_stake));
 		}
 
