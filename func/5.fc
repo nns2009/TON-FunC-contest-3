@@ -312,6 +312,7 @@ forall X -> tuple tuple_from_one(X x) asm "SINGLE";
 ;; testable
 (tuple, tuple) get_stake_table() method_id {
 	;; return (tuple_from_one(45), tuple_from_one(56));
+	;; return (empty_tuple(), empty_tuple());
 
 	(cell participants) = load_data();
 
