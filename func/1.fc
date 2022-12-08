@@ -25,8 +25,8 @@ const int command_len = 3;
 const int bitslen_len = 10; ;; bitslen from 0 to 1023 (inclusive) - covers all cases
 
 const int create_builder_code = 1;
-const int push_ref_code = 2;
-const int push_bits_code = 3;
+;; const int push_ref_code = 2;
+;; const int push_bits_code = 3;
 const int end_builder_code = 4;
 ;; const int command_send_code = 5;
 
@@ -52,89 +52,111 @@ const int end_builder_code = 4;
 
 
 
+global int in_cells_count;
+global int in_cells_index;
+global cell in_cells; 
+global slice in_cs;
 
-
-(slice, int) ~read_uint(slice cs, int len) {
-	if (cs.slice_bits() < len) {
-		if (cs.slice_refs_empty?()) {
-			return (cs, -1);
+int read_structure_advance(int len) impure {
+	if (in_cs.slice_bits() < len) {
+		if (in_cs.slice_refs_empty?()) {
+			in_cells_index += 1;
+			if (in_cells_index >= in_cells_count) {
+				throw(444); ;; Remove for optimization?
+			}
+			(cell next_group, int f) = in_cells.udict_get_ref?fixed(groups_dict_len, in_cells_index);
+			;; f should always be "true" (found) because we iterate through known indexes
+			in_cs = next_group.begin_parse();
+		} else {
+			in_cs = in_cs.preload_ref().begin_parse();
 		}
-		cs = cs.preload_ref().begin_parse();
 	}
+}
 
-	if (cs.slice_bits() >= len) {
-		int res = cs~load_uint(len);
-		return (cs, res);
-	}
-
-	;; Line below should actually never happen
-	;; If 'cs' started with not enough bits,
-	;; but was able to load a ref,
-	;; than that ref should have been there for a reason
-	return (cs, -1);
+int read_uint(int len) impure {
+	read_structure_advance(len);
+	int res = in_cs~load_uint(len);
+	return res;
 }
 ;; No <function templating> in FunC => copy-paste :(
-(slice, slice) ~read_slice(slice cs, int len) {
-	if (cs.slice_bits() < len) {
-		;; No extra checks because reading "slice" is mandatory
-		cs = cs.preload_ref().begin_parse();
-	}
-	slice res = cs~load_slice(len);
-	return (cs, res);
+slice read_slice(int len) impure {
+	read_structure_advance(len);
+	slice res = in_cs~load_slice(len);
+	return res;
 }
 
-(slice, int) ~read_op_code(slice cs) {
-	return ~read_uint(cs, command_len);
+int read_op_code() impure {
+	return read_uint(command_len);
 }
-(slice, slice) ~read_bits(slice cs) {
-	int bitslen = cs~read_uint(bitslen_len);
-	return ~read_slice(cs, bitslen);
+slice read_bits() impure {
+	int bitslen = read_uint(bitslen_len);
+	return read_slice(bitslen);
 }
 
 
-() ex_create_builder() impure { }
-() ex_push_ref() impure { }
-() ex_push_bits(slice bits) impure { }
-() ex_end_builder() impure { }
+cell restore() impure {
+	builder b = begin_cell();
 
+	while (true) {
+		int op_code = read_op_code();
 
-() process_group(cell group) {
-	slice cs = group.begin_parse();
-
-	do {
-		int op_code = cs~read_op_code();
-		if (op code == create_builder_code) { ex_create_builder(); }
-		elseif (op_code == push_ref_code) { ex_push_ref(); }
-		elseif (op_code == push_bits_code) {
-			slice bits = cs~read_bits();
-			ex_push_bits(bits);
+		int leave = 0;
+		if (op_code == create_builder_code) {
+			cell child = restore();
+			b~store_ref(child);
 		}
-		elseif (op_code == end_builder_code) { ex_end_builder(); }
-	} until (op_code < 0);
+		elseif (op_code == end_builder_code) {
+			slice bits = read_bits();
+			b~store_slice(bits);
+			return b.end_cell();
+		}
+	}
+	;; unreachable
 }
 
+
+;; body = Maybe<destination>, ^group
 ;; testable
 () recv_internal (slice body) {
 	int finish = body~load_int(1);
-
 	slice destination = null();
 	if (finish) {
 		destination = body~load_msg_addr();
 	}
 
 	(int group_count, cell groups) = load_data();
-	groups~udict_set_ref(groups_dict_len, group_count, begin_cell().store_slice(body).end_cell());
+	groups~udict_set_ref(groups_dict_len, group_count, body.preload_ref());
 	group_count += 1;
 
 	if (finish) {
-		int i = 0;
-		while (i < group_count) {
-			(cell group, int f) = groups~udict_get_ref?fixed(groups_dict_len, i);
+		in_cells_count = group_count;
+		in_cells_index = 0;
+		in_cells = groups;
+		{
+			(cell group, int f) = groups~udict_get_ref?fixed(groups_dict_len, 0);
 			;; f has to be "true", because we are iterating through "known" indexes
-			process_group(group);
-
-			i += 1;
+			in_cs = group.begin_parse();
 		}
+
+		cell full = restore();
+
+		var msg = begin_cell()
+			.store_uint(0x18, 6)
+			.store_slice(sender)
+			.store_coins(0)
+			.store_uint(1, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+			.store_ref(full)
+			.end_cell();
+		send_raw_message(msg, 0);
+
+		;; int i = 0;
+		;; while (i < group_count) {
+		;; 	(cell group, int f) = groups~udict_get_ref?fixed(groups_dict_len, i);
+		;; 	;; f has to be "true", because we are iterating through "known" indexes
+		;; 	process_group(group);
+
+		;; 	i += 1;
+		;; }
 	}
 
 	save_data(group_count, groups);
@@ -160,6 +182,7 @@ global tuple out_cells;
 	out_cells~tpush(c);
 }
 () collapse_remaining_builders() impure {
+	;; Actually, it seems like it should always be true:
 	if (bs.tuple_len() >= 1) {
 		collapse_builders();
 	}
@@ -171,23 +194,22 @@ global tuple out_cells;
 }
 
 
-() write_uint(int v, int len) impure {
+int write_structure_advance(int len) impure {
 	builder b = bs~tuple_pop();
 	if (b.builder_bits() + len > Cell_Max_Bits) {
 		bs~tpush(b);
-		b = begin_cell();
 		maybe_collapse_builders();
+		b = begin_cell();
 	}
+	return b;
+}
+() write_uint(int v, int len) impure {
+	builder b = write_structure_advance(len);
 	b~store_uint(v, len);
 	bs~tpush(b);
 }
 () write_slice(slice bits) impure {
-	builder b = bs~tuple_pop();
-	if (b.builder_bits() + bits.slice_bits() > Cell_Max_Bits) {
-		bs~tpush(b);
-		b = begin_cell();
-		maybe_collapse_builders();
-	}
+	builder b = write_structure_advance(bits.slice_bits());
 	b~store_slice(bits);
 	bs~tpush(b);
 }
@@ -204,47 +226,50 @@ global tuple out_cells;
 () create_builder() impure {
 	write_op_code(create_builder_code);
 }
-() push_ref() impure {
-	write_op_code(push_ref_code);
-}
-() push_bits(slice bits) impure {
-	write_op_code(push_bits_code);
+() end_builder(slice bits) impure {
+	write_op_code(end_builder_code);
 	write_bits(bits);
 }
-() end_builder() impure {
-	write_op_code(end_builder_code);
-}
-;; () command_send(slice destination) impure {
-;; 	write_op_code(command_send_code);
-;; 	write_bits(destination);
-;; }
 
 
-
-() dfs(cell c) {
+() flatten(cell c) impure {
 	slice cs = c.begin_parse();
 
 	create_builder();
-	;; int child_count = cs.slice_refs();
 	while (~ cs.slice_refs_empty()) {
 		cell child = cs~load_ref();
-		dfs(child);
-		push_ref();
+		flatten(child);
 	}
-
-	;; repeat(child_count) {
-	;; 	push_ref();
-	;; }
-
-	push_bits(cs);
-	end_builder();
+	end_builder(cs);
 }
 
 ;; testable
 tuple decomposite (cell big_cell, slice destination_address) method_id {
 	bs = [begin_cell()];
 	out_cells = [];
-	dfs(big_cell);
+	flatten(big_cell);
 	collapse_remaining_builders();
-	;; command_send(destination_address);
+
+	tuple res_cells = [];
+
+	int group_count = bs.tuple_len();
+	int last_i = group_count - 1;
+
+	int i = 0;
+	while (i < last_i) {
+		cell res_i = begin_cell()
+			.store_int(0, 1)
+			.store_ref(out_cells.at(i))
+			.end_cell();
+		res_cells~tpush(res_i);
+
+		i += 1;
+	}
+	cell res_last = begin_cell()
+		.store_int(-1, 1).store_slice(destination_address)
+		.store_ref(out_cells.at(last_i))
+		.end_cell();
+	res_cells~tpush(res_last);
+	
+	return res_cells;
 }
