@@ -21,26 +21,41 @@ async function testCell(bigCell: Cell) {
 	console.log('logs:', logs);
 	console.log('groups:', groups);
 
-	// const assembleResult = await contract.sendInternalMessage(dummyInternalMessage(cell()));
+	for (let i = 0; i < groups.length; i++) {
+		const group = groups[i];
+		console.log(`Group ${i}: len=${group.beginParse().remaining}, bits:${group.bits}`);
 
-	// if (assembleResult.type !== 'success') {
-	// 	throw new Error(`Big cell reassembly should have suceeded`);
-	// }
-	// if (assembleResult.actionList.length === 0) {
-	// 	throw new Error(`No messages send `);
-	// }
-	// if (assembleResult.actionList.length > 1) {
-	// 	throw new Error(`More than one action send by try_elect`);
-	// }
-	// const action = assembleResult.actionList[0];
-	// if (action.type !== 'send_msg') {
-	// 	throw new Error(`Action by contract is not 'send_msg'`);
-	// }
-	// if (action.mode !== 64) {
-	// 	throw new Error(`Message send by contract with wrong mode (${action.mode}), expected mode=64`);
-	// }
+		const isLastGroup = i + 1 === groups.length;
 
-	
+		const assembleResult = await contract.sendInternalMessage(dummyInternalMessage(group));
+
+		if (assembleResult.type !== 'success') {
+			throw new Error(`Group ${i}: recv_internal should always succeed = not throw`);
+		}
+
+		if (!isLastGroup) {
+			if (assembleResult.actionList.length > 0) {
+				throw new Error(`Group ${i}: Reassembly should not have taken any action, because the group is not last`);
+			}
+			continue;
+		}
+
+		if (assembleResult.actionList.length === 0) {
+			throw new Error(`Group ${i}: No messages sent`);
+		}
+		if (assembleResult.actionList.length > 1) {
+			throw new Error(`Group ${i}: More than one action taken by reassembly`);
+		}
+		
+		const action = assembleResult.actionList[0];
+		if (action.type !== 'send_msg') {
+			throw new Error(`Group ${i}: Action by contract is not 'send_msg'`);
+		}
+		if (action.mode !== 0) {
+			throw new Error(`Group ${i}: Message send by contract with wrong mode (${action.mode}), expected mode=0`);
+		}
+	}
+
 	console.log()
 }
 

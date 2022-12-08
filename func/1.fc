@@ -24,10 +24,10 @@ const int groups_dict_len = 10; ;; Should store up to 255 entries, but let's be 
 const int command_len = 3;
 const int bitslen_len = 10; ;; bitslen from 0 to 1023 (inclusive) - covers all cases
 
-const int create_builder_code = 1;
+const int create_builder_code = 3;
 ;; const int push_ref_code = 2;
 ;; const int push_bits_code = 3;
-const int end_builder_code = 4;
+const int end_builder_code = 5;
 ;; const int command_send_code = 5;
 
 
@@ -128,7 +128,7 @@ cell restore() impure {
 	int finish = body~load_int(1);
 	slice destination = null();
 	if (finish) {
-		destination = body~load_msg_addr();
+		destination = body~load_msg_addr(); ;; ! Move down
 	}
 
 	(int group_count, cell groups) = load_data();
@@ -262,11 +262,20 @@ builder write_structure_advance(int len) impure {
 	end_builder(cs);
 }
 
+slice test_slice() asm "b{010110111} PUSHSLICE";
+cell test_cell() {
+	return begin_cell().store_slice(test_slice()).end_cell();
+}
+
 ;; testable
 tuple decomposite (cell big_cell, slice destination_address) method_id {
 	bs = empty_tuple(); ;; Stupid compiler doesn't accept [begin_cell()]
 	bs = bs.tpush(begin_cell());
 	out_cells = empty_tuple();
+
+	;; out_cells = out_cells.tpush(test_cell());
+	;; return out_cells;
+
 	flatten(big_cell);
 	collapse_remaining_builders();
 
@@ -274,7 +283,7 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 
 	tuple res_cells = empty_tuple();
 
-	int group_count = bs.tuple_len();
+	int group_count = out_cells.tuple_len();
 	int last_i = group_count - 1;
 
 	int i = 0;
@@ -288,7 +297,8 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 		i += 1;
 	}
 	cell res_last = begin_cell()
-		.store_int(-1, 1).store_slice(destination_address)
+		.store_int(-1, 1)
+		.store_slice(destination_address)
 		.store_ref(out_cells.at(last_i))
 		.end_cell();
 	res_cells~tpush(res_last);
