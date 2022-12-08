@@ -101,12 +101,12 @@ slice read_bits() impure {
 
 
 cell restore() impure {
-	~dump(100300500);
+	;; ~dump(100300500);
 	builder b = begin_cell();
 
 	do {
 		int op_code = read_op_code();
-		op_code~dump();
+		;; op_code~dump();
 
 		int leave = 0;
 		if (op_code == create_builder_code) {
@@ -124,7 +124,7 @@ cell restore() impure {
 	;; cell res = b.end_cell();
 	;; res~dump();
 
-	~dump(100300999);
+	;; ~dump(100300999);
 	return b.end_cell();
 	;; unreachable, but stupid FunC compiler complanes about return type
 }
