@@ -124,12 +124,12 @@ slice i_address(tuple t) {
 
 	int stake = sorter_upper_bound;
 	;; Gas-Hook here: 7 302 090
-	int testCount = 100000;
-	int testI = 0;
-	while (testI < testCount) {
-		testI += 1;
-	}
-	stake += testI - testCount;
+	;; int testCount = 100000;
+	;; int testI = 0;
+	;; while (testI < testCount) {
+	;; 	testI += 1;
+	;; }
+	;; stake += testI - testCount;
 
 	do {
 		(stake, slice sor_pre_list, int sor_f) = sorter.udict_get_prev?(sorter_key_len, stake);
