@@ -27,8 +27,8 @@ PROGRAM{
     }>
     EXECUTE
   }>
-  expression PROC:<{
-    group CALLDICT
+  expression PROCINLINE:<{
+    group INLINECALLDICT
     WHILE:<{
       DUP
       43 EQINT
@@ -39,50 +39,51 @@ PROGRAM{
       43 EQINT
       IF:<{
         next_char INLINECALLDICT
-        group CALLDICT
+        group INLINECALLDICT
         2SWAP
         ADD
       }>ELSE<{
         next_char INLINECALLDICT
-        group CALLDICT
+        group INLINECALLDICT
         2SWAP
         SUB
       }>
       -ROT
     }>
   }>
-  item PROC:<{
+  item PROCINLINE:<{
     DUP
     40 EQINT
-    IFJMP:<{
+    IF:<{
       DROP
       next_char INLINECALLDICT
-      expression CALLDICT
+      expression INLINECALLDICT
       DROP
       next_char INLINECALLDICT
+    }>ELSE<{
+      0 PUSHINT
+      WHILE:<{
+        OVER
+        47 GTINT
+        s2 PUSH
+        58 LESSINT
+        AND
+      }>DO<{
+        SWAP
+        -48 ADDCONST
+        SWAP
+        10 MULCONST
+        SWAP
+        ADD
+        SWAP
+        next_char INLINECALLDICT
+        ROT
+      }>
+      -ROT
     }>
-    0 PUSHINT
-    WHILE:<{
-      OVER
-      47 GTINT
-      s2 PUSH
-      58 LESSINT
-      AND
-    }>DO<{
-      SWAP
-      -48 ADDCONST
-      SWAP
-      10 MULCONST
-      SWAP
-      ADD
-      SWAP
-      next_char INLINECALLDICT
-      ROT
-    }>
-    -ROT
   }>
-  group PROC:<{
-    item CALLDICT
+  group PROCINLINE:<{
+    item INLINECALLDICT
     WHILE:<{
       DUP
       42 EQINT
@@ -93,19 +94,19 @@ PROGRAM{
       42 EQINT
       IF:<{
         next_char INLINECALLDICT
-        item CALLDICT
+        item INLINECALLDICT
         2SWAP
         MUL
       }>ELSE<{
         next_char INLINECALLDICT
-        item CALLDICT
+        item INLINECALLDICT
         2SWAP
         DIV
       }>
       -ROT
     }>
   }>
-  print_int PROC:<{
+  print_int PROCINLINE:<{
     DUP
     0 EQINT
     OVER
@@ -162,7 +163,7 @@ PROGRAM{
     32 PUSHINT
     SDSKIPFIRST
     next_char INLINECALLDICT
-    expression CALLDICT
+    expression INLINECALLDICT
     2DROP
     0 PUSHINT
     DUP
@@ -178,7 +179,7 @@ PROGRAM{
     s1 s2 XCHG
     32 STU
     SWAP
-    print_int CALLDICT
+    print_int INLINECALLDICT
     ENDC
     64 PUSHINT
     SENDRAWMSG

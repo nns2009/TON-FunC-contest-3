@@ -31,7 +31,7 @@ int tuple_len(tuple t) asm "TLEN";
 (int, slice, int) expression(slice cs, int char) impure;
 
 ;; int item() { return 5; }
-(int, slice, int) item(slice cs, int char) impure {
+(int, slice, int) item(slice cs, int char) impure inline {
 	;; (<expression>)
 	if (char == 40) { ;; '('
 		char = cs~next_char();
@@ -53,7 +53,7 @@ int tuple_len(tuple t) asm "TLEN";
 }
 
 ;; int group() { return 111; }
-(int, slice, int) group(slice cs, int char) impure {
+(int, slice, int) group(slice cs, int char) impure inline {
 	(int v, cs, char) = item(cs, char); ;; cs~item(char);
 
 	while ((char == 42) | (char == 47)) {
@@ -73,7 +73,7 @@ int tuple_len(tuple t) asm "TLEN";
 	return (v, cs, char);
 }
 
-(int, slice, int) expression(slice cs, int char) impure {
+(int, slice, int) expression(slice cs, int char) impure inline {
 	(int v, cs, char) = group(cs, char); ;; cs~group(char);
 
 	while ((char == 43) | (char == 45)) {
@@ -93,7 +93,7 @@ int tuple_len(tuple t) asm "TLEN";
 	return (v, cs, char);
 }
 
-builder print_int(builder b, int v) {
+builder print_int(builder b, int v) inline {
 	int is_zero = v == 0;
 
 	if (v < 0) {
