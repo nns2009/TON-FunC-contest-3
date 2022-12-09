@@ -240,7 +240,7 @@ builder bs_pop2() impure inline {
 }
 () collapse_remaining_builders() impure inline {
 	bs = bs.tpush(last_builder);
-	;; Actually, it seems like it should always be true: ;; Code from before
+	;; Actually, it seems like it should always be true: ;; Comment from before
 	if (bs.tuple_len() >= 1) {
 		collapse_builders();
 	}

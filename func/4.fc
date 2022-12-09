@@ -4,7 +4,7 @@
 
 const int prime = 57896044618658097711785492504343953926634992332820282019728792003956564819949; ;; (1 << 255) - 19;
 const int A = 486662;
-const int B = 1;
+;; const int B = 1;
 
 
 ;; MULDIVMOD (x y z – q r)
@@ -74,7 +74,7 @@ int div(int a, int b) inline { return divide_mod(a, b, prime); }
 
 		slope = div(
 			numerator,
-			mult(2, mult(B, y1))
+			mult(2, y1) ;; mult(2, mult(B, y1)) with B = 1
 		);
 	}
 	else {
@@ -97,12 +97,16 @@ int div(int a, int b) inline { return divide_mod(a, b, prime); }
 }
 
 (int, int) double_XZ(int X, int Z) inline {
+	int Xsq = sqr(X);
+	int Zsq = sqr(Z);
+	int XZ = mult(X, Z);
+
 	;; (X**2 - Z**2) ** 2 % prime
-	int NX = sqr((sqr(X) - sqr(Z)) % prime);
+	int NX = sqr((Xsq - Zsq) % prime);
 	;; 4*X*Z*(X**2 + A*X*Z + Z**2) % prime
-	int NZ = mult(4, mult(X, mult(Z,
-		( (sqr(X) + mult(A, mult(X, Z))) % prime + sqr(Z) ) % prime
-	)));
+	int NZ = mult(4, mult(XZ,
+		( (Xsq + mult(A, XZ)) % prime + Zsq) % prime
+	));
 	
 	return (NX, NZ);
 }
