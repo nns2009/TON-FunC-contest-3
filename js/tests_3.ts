@@ -8,14 +8,16 @@ import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithR
 let initialData = cell();
 let contract = await contractLoader('./../func/stdlib.fc', './../func/3.fc')(initialData);
 
+let totalGas = 0;
 async function testExpression(expression: string) {
-	console.log('--------------');
+	//console.log('--------------');
 
 	const messageBody = cell(new CommentMessage(expression));
 	//console.log(messageBody);
 	const executionResult = await contract.sendInternalMessage(
 		dummyInternalMessage(messageBody)
 	);
+	totalGas += executionResult.gas_consumed;
 
 	const answerEvaled = eval(expression);
 	//console.log(executionResult.debugLogs);
@@ -60,3 +62,5 @@ await testExpression('100-9');
 await testExpression('1+'.repeat(300) + '1');
 await testExpression('1+2+3+10+20-100-200-300');
 // await testExpression('2*3*10*30/7/11*4');
+
+console.log(`All tests finished. Gas: ${totalGas}`);

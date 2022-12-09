@@ -209,7 +209,7 @@ slice i_address(tuple t) {
 			int proceed_skipping = true;
 			while ((li < count) & proceed_skipping) {
 				;; Computing "upper bound" heuristic:
-				;; if even this upper bount is <= opt_effective_total
+				;; if even this upper bound is <= opt_effective_total
 				;; then there is no need to recompute it properly from scratch
 				cur_total += ps.at(li).i_stake(); 
 				if (cur_total > opt_effective_total) { proceed_skipping = false; }

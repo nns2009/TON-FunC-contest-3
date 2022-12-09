@@ -13,7 +13,7 @@ global int char;
 global slice cs;
 
 
-() next_char() impure {
+() next_char() impure inline {
 	if (cs.slice_bits() < 8) {
 		if (cs.slice_refs_empty?()) {
 			char = 0; ;; expression end
