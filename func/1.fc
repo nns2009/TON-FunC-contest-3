@@ -34,7 +34,7 @@ const int end_builder_code = 5;
 const int load_by_index_code = 6;
 
 
-(int, cell) load_data() {
+(int, cell) load_data() inline {
 	slice cs = get_data().begin_parse();
 	if (cs.slice_data_empty?()) {
 		return (0, new_dict());
@@ -45,7 +45,7 @@ const int load_by_index_code = 6;
 	return (group_count, groups);
 }
 
-() save_data(int group_count, cell groups) impure {
+() save_data(int group_count, cell groups) impure inline {
 	set_data(begin_cell()
 		.store_uint(group_count, 16)
 		.store_dict(groups)
@@ -60,7 +60,7 @@ global int in_cells_index;
 global cell in_cells; 
 global slice in_cs;
 
-() read_structure_advance(int len) impure {
+() read_structure_advance(int len) impure inline {
 	;; dump_stack();
 	;; len~dump();
 	if (in_cs.slice_bits() < len) {
@@ -78,7 +78,7 @@ global slice in_cs;
 	}
 }
 
-int read_uint(int len) impure {
+int read_uint(int len) impure inline {
 	read_structure_advance(len);
 	(slice ncs, int res) = in_cs.load_uint(len);
 	in_cs = ncs;
@@ -86,7 +86,7 @@ int read_uint(int len) impure {
 	return res;
 }
 ;; No <function templating> in FunC => copy-paste :(
-slice read_slice(int len) impure {
+slice read_slice(int len) impure inline {
 	read_structure_advance(len);
 	(slice ncs, slice res) = in_cs.load_bits(len);
 	in_cs = ncs;
@@ -94,10 +94,10 @@ slice read_slice(int len) impure {
 	return res;
 }
 
-int read_op_code() impure {
+int read_op_code() impure inline {
 	return read_uint(command_len);
 }
-slice read_bits() impure {
+slice read_bits() impure inline {
 	int bitslen = read_uint(bitslen_len);
 	return read_slice(bitslen);
 }
@@ -214,19 +214,19 @@ global tuple bs; ;; BuilderS
 global tuple out_cells;
 
 
-builder bs_pop() impure {
+builder bs_pop() impure inline {
 	(tuple nbs, builder res) = bs.tuple_pop();
 	bs = nbs;
 	return res;
 }
 
-;; () out_cells_push(cell c) impure {
+;; () out_cells_push(cell c) impure inline {
 ;; 	out_cells = out_cells.tpush(c);
 ;; }
 
 
 ;; 'bs' length has to be >= 1 !
-() collapse_builders() impure {
+() collapse_builders() impure inline {
 	builder inner = bs_pop();
 
 	cell c = inner.end_cell();
@@ -237,20 +237,20 @@ builder bs_pop() impure {
 
 	out_cells = out_cells.tpush(c);
 }
-() collapse_remaining_builders() impure {
+() collapse_remaining_builders() impure inline {
 	;; Actually, it seems like it should always be true:
 	if (bs.tuple_len() >= 1) {
 		collapse_builders();
 	}
 }
-() maybe_collapse_builders() impure {
+() maybe_collapse_builders() impure inline {
 	if (bs.tuple_len() >= group_max_cells) {
 		collapse_builders();
 	}
 }
 
 
-builder write_structure_advance(int len) impure {
+builder write_structure_advance(int len) impure inline {
 	builder b = bs_pop();
 	if (b.builder_bits() + len > Cell_Max_Bits) {
 		bs = bs.tpush(b);
@@ -259,34 +259,34 @@ builder write_structure_advance(int len) impure {
 	}
 	return b;
 }
-() write_uint(int v, int len) impure {
+() write_uint(int v, int len) impure inline {
 	builder b = write_structure_advance(len);
 	b~store_uint(v, len);
 	bs = bs.tpush(b);
 }
-() write_slice(slice bits) impure {
+() write_slice(slice bits) impure inline {
 	builder b = write_structure_advance(bits.slice_bits());
 	b = b.store_slice(bits);
 	bs = bs.tpush(b);
 }
 
 
-() write_op_code(int code) impure {
+() write_op_code(int code) impure inline {
 	write_uint(code, command_len);
 }
-() write_bits(slice bits) impure {
+() write_bits(slice bits) impure inline {
 	write_uint(bits.slice_bits(), bitslen_len);
 	write_slice(bits);
 }
 
-() create_builder() impure {
+() create_builder() impure inline {
 	write_op_code(create_builder_code);
 }
-() load_by_index(int index) impure {
+() load_by_index(int index) impure inline {
 	write_op_code(load_by_index_code);
 	write_uint(index, cell_index_len);
 }
-() end_builder(slice bits) impure {
+() end_builder(slice bits) impure inline {
 	write_op_code(end_builder_code);
 	write_bits(bits);
 }
