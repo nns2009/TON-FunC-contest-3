@@ -210,11 +210,12 @@ cell restore() impure {
 
 
 
+global builder last_builder;
 global tuple bs; ;; BuilderS
 global tuple out_cells;
 
 
-builder bs_pop() impure inline {
+builder bs_pop2() impure inline {
 	(tuple nbs, builder res) = bs.tuple_pop();
 	bs = nbs;
 	return res;
@@ -227,18 +228,19 @@ builder bs_pop() impure inline {
 
 ;; 'bs' length has to be >= 1 !
 () collapse_builders() impure inline {
-	builder inner = bs_pop();
+	builder inner = bs_pop2();
 
 	cell c = inner.end_cell();
 	repeat (bs.tuple_len()) {
-		builder b = bs_pop();
+		builder b = bs_pop2();
 		c = b.store_ref(c).end_cell();
 	}
 
 	out_cells = out_cells.tpush(c);
 }
 () collapse_remaining_builders() impure inline {
-	;; Actually, it seems like it should always be true:
+	bs = bs.tpush(last_builder);
+	;; Actually, it seems like it should always be true: ;; Code from before
 	if (bs.tuple_len() >= 1) {
 		collapse_builders();
 	}
@@ -250,24 +252,20 @@ builder bs_pop() impure inline {
 }
 
 
-builder write_structure_advance(int len) impure inline {
-	builder b = bs_pop();
-	if (b.builder_bits() + len > Cell_Max_Bits) {
-		bs = bs.tpush(b);
+() write_structure_advance(int len) impure inline {
+	if (last_builder.builder_bits() + len > Cell_Max_Bits) {
+		bs = bs.tpush(last_builder);
 		maybe_collapse_builders();
-		b = begin_cell();
+		last_builder = begin_cell();
 	}
-	return b;
 }
 () write_uint(int v, int len) impure inline {
-	builder b = write_structure_advance(len);
-	b~store_uint(v, len);
-	bs = bs.tpush(b);
+	write_structure_advance(len);
+	last_builder = last_builder.store_uint(v, len);
 }
 () write_slice(slice bits) impure inline {
-	builder b = write_structure_advance(bits.slice_bits());
-	b = b.store_slice(bits);
-	bs = bs.tpush(b);
+	write_structure_advance(bits.slice_bits());
+	last_builder = last_builder.store_slice(bits);
 }
 
 
@@ -332,16 +330,18 @@ cell test_cell() {
 ;; testable
 tuple decomposite (cell big_cell, slice destination_address) method_id {
 	bs = empty_tuple(); ;; Stupid compiler doesn't accept [begin_cell()]
-	bs = bs.tpush(begin_cell());
+	;; bs = bs.tpush(begin_cell());
+	last_builder = begin_cell();
 	out_cells = empty_tuple();
 
 	;; out_cells = out_cells.tpush(test_cell());
 	;; return out_cells;
-	int some_var = 0;
-	while (some_var < 100000) {
-		some_var += 1;
-	}
-	some_var~impure_touch();
+
+	;; int some_var = 0;
+	;; while (some_var < 100000) {
+	;; 	some_var += 1;
+	;; }
+	;; some_var~impure_touch();
 
 	cells_count = 0;
 	cell_to_index = new_dict();
