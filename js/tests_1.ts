@@ -2,10 +2,30 @@ import BN from 'bn.js';
 import { Address, Cell, CommentMessage, Slice } from 'ton';
 import { stackCell, stackSlice } from 'ton-contract-executor';
 
-import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, saddress, invokeGetMethod1ResultAndLogs, zeros, ones } from './shared.js';
+import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, saddress, invokeGetMethod1ResultAndLogs, zeros, ones, invokeGetMethod1ResultAndLogsGas } from './shared.js';
 
 
 let compiledSources = contractLoader('./../func/stdlib.fc', './../func/1.fc');
+
+
+type CellTotals = {
+	bits: number,
+	cells: number,
+};
+function getCellTotals(cell: Cell): CellTotals {
+	const res = {
+		bits: cell.beginParse().remaining,
+		cells: 1,
+	};
+
+	for (const child of cell.refs) {
+		const childTotal = getCellTotals(child);
+		res.bits += childTotal.bits;
+		res.cells += childTotal.cells;
+	}
+
+	return res;
+}
 
 
 let currentTestIndex = 0;
@@ -17,7 +37,7 @@ async function testCell(name: string, bigCell: Cell) {
 	const destination = dummyAddress;
 
 	// console.log('--------- decomposite ---------');
-	const [groups, logs] = await invokeGetMethod1ResultAndLogs<Cell[]>(
+	const [groups, logs, decompositeGas] = await invokeGetMethod1ResultAndLogsGas<Cell[]>(
 		contract, 'decomposite', 
 		[stackCell(bigCell), stackSlice(saddress(destination))]
 	);
@@ -75,8 +95,7 @@ async function testCell(name: string, bigCell: Cell) {
 			throw new Error(`Group ${i}: Something is wrong with hashes!\noriginalHash: ${originalHash}\nrestoredHash: ${restoredHash}`);
 		}
 
-		const same = true;// originalHash === restoredHash; // bigCell.equals(restoredCell); <- This produces "incorrect unequal" at least for some nested cells
-
+		const same = originalHash === restoredHash; // bigCell.equals(restoredCell); <- This produces "incorrect unequal" at least for some nested cells
 
 
 		if (!same) {
@@ -88,13 +107,40 @@ async function testCell(name: string, bigCell: Cell) {
 		}
 	}
 
-	console.log(`Test ${currentTestIndex++} "${name}" passed. Gas: last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Groups: ${groups.length}`);
+	const cellTotals = getCellTotals(bigCell);
+
+	console.log(`Test ${currentTestIndex++} "${name}" passed. Gas: decomposit=${decompositeGas}, last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Max depth: ${bigCell.getMaxDepth()}, total cells: ${cellTotals.cells}, total bits: ${cellTotals.bits}. Groups: ${groups.length}`);
 }
 
 
 
 await testCell('Empty', cell());
 await testCell('Small Flat', cell(suint(5, 40), suint(13, 24)));
+await testCell('1-level fork',
+	cell(suint(123, 41))
+	.withReference(suint(150, 299))
+	.withReference(suint(180, 512))
+	.withReference(suint(900900, 1023))
+)
+await testCell('2-level fork',
+	suint(123456, 41)
+	.withReference(
+		suint(150, 299)
+		.withReference(suint(100100, 32))
+		.withReference(suint(100200, 33))
+	).withReference(
+		suint(180, 512)
+		.withReference(suint(200100, 42))
+		.withReference(suint(200200, 43))
+		.withReference(suint(200300, 44))
+	).withReference(
+		suint(900900, 1023)
+		.withReference(suint(300100, 52))
+		.withReference(suint(300200, 53))
+		.withReference(suint(300300, 54))
+		.withReference(suint(300400, 55))
+	)
+)
 await testCell('1023 x 0', zeros(1023));
 await testCell('1023 x 1', ones(1023));
 await testCell('1022 x 0', zeros(1022));

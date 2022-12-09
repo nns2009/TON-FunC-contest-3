@@ -77,6 +77,22 @@ export const contractLoader = (...filenames: string[]) => {
 	}
 };
 
+export async function invokeGetMethodWithResultsAndLogsGas<T>(
+	contract: SmartContract,
+	method: string,
+	args: TVMStack,
+	opts?: { gasLimits?: GasLimits | undefined; } | undefined
+): Promise<[T, string[], number]> {
+	const exres = await contract.invokeGetMethod(method, args, opts);
+	if (exres.type !== 'success' || exres.exit_code > 0) {
+		throw new Error(`exit_code = ${exres.exit_code}, ${exres.logs}`);
+	}
+
+	const { result } = exres;
+	const value = result as T;
+
+	return [value, exres.debugLogs, exres.gas_consumed];
+}
 export async function invokeGetMethodWithResultsAndLogs<T>(
 	contract: SmartContract,
 	method: string,
@@ -128,6 +144,15 @@ export async function invokeGetMethod1ResultAndLogs<T>(
 ): Promise<[T, string[]]> {
 	const [results, logs] = await invokeGetMethodWithResultsAndLogs<[T]>(contract, method, args, opts);
 	return [results[0], logs];
+}
+export async function invokeGetMethod1ResultAndLogsGas<T>(
+	contract: SmartContract,
+	method: string,
+	args: TVMStack,
+	opts?: { gasLimits?: GasLimits | undefined; } | undefined
+): Promise<[T, string[], number]> {
+	const [results, logs, gas] = await invokeGetMethodWithResultsAndLogsGas<[T]>(contract, method, args, opts);
+	return [results[0], logs, gas];
 }
 
 
