@@ -17,7 +17,7 @@ const Cell_Max_Bits = 1023;
 const Cell_Max_Refs = 4;
 
 
-const int group_max_cells = 30; ;; 30 * 1023 = 30690 < 40000 with some extra room just in case
+const int group_max_cells = 15; ;; 30 * 1023 = 30690 < 40000 with some extra room just in case
 
 
 const int groups_dict_len = 10; ;; Should store up to 255 entries, but let's be safe
@@ -174,9 +174,12 @@ cell restore() impure {
 
 		;; 	i += 1;
 		;; }
+
+		save_data(0, new_dict()); ;; Wipe state
+	} else {
+		save_data(group_count, groups);
 	}
 
-	save_data(group_count, groups);
 }
 
 

@@ -27,12 +27,12 @@ function getCellTotals(cell: Cell): CellTotals {
 	return res;
 }
 
+let contract = await compiledSources(cell());
 
 let currentTestIndex = 0;
 async function testCell(name: string, bigCell: Cell) {
 	// console.log('---------------------');
 
-	let contract = await compiledSources(cell());
 
 	const destination = dummyAddress;
 
@@ -49,8 +49,19 @@ async function testCell(name: string, bigCell: Cell) {
 
 	const gasUsages = [];
 
+	let groupMaxBits = -1;
+	let groupMaxCells = -1;
+	let groupMaxDepth = -1;
+	let groupMaxBocSize = -1;
+
 	for (let i = 0; i < groups.length; i++) {
 		const group = groups[i];
+
+		const groupTotals = getCellTotals(group);
+		groupMaxBits = Math.max(groupMaxBits, groupTotals.bits);
+		groupMaxCells = Math.max(groupMaxCells, groupTotals.cells);
+		groupMaxDepth = Math.max(groupMaxDepth, group.getMaxDepth());
+		groupMaxBocSize = Math.max(groupMaxBocSize, group.toBoc({ idx: false }).length); // bytes
 		// !!! Verify group
 		// console.log(`Group ${i}: len=${group.beginParse().remaining}`); //, bits:${group.bits}`);
 
@@ -109,7 +120,7 @@ async function testCell(name: string, bigCell: Cell) {
 
 	const cellTotals = getCellTotals(bigCell);
 
-	console.log(`Test ${currentTestIndex++} "${name}" passed. Gas: decomposit=${decompositeGas}, last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Max depth: ${bigCell.getMaxDepth()}, total cells: ${cellTotals.cells}, total bits: ${cellTotals.bits}. Groups: ${groups.length}`);
+	console.log(`Test ${currentTestIndex++} "${name}" passed. Gas: decomposit=${decompositeGas}, last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Max depth: ${bigCell.getMaxDepth()}, total cells: ${cellTotals.cells}, total bits: ${cellTotals.bits}. Groups: ${groups.length}, max depth: ${groupMaxDepth}, max cells: ${groupMaxCells}, max bits: ${groupMaxBits}, max boc size: ${groupMaxBocSize * 8}`);
 }
 
 
@@ -147,10 +158,14 @@ await testCell('1022 x 0', zeros(1022));
 await testCell('1021 x 1', ones(1021));
 await testCell('1020 x 0', zeros(1021));
 
-function depthTestCell(depth: number): Cell {
+function depthTestCell(
+	depth: number,
+	nSelector: (d: number) => number,
+	bitlenSelector: (d: number) => number,
+): Cell {
 	let child = null;
 	for (let i = depth; i >= 0; i--) {
-		const container = suint(depth, depth + 1)
+		const container = suint(nSelector(i), bitlenSelector(i))
 		if (child) {
 			container.withReference(child);
 		}
@@ -162,7 +177,10 @@ function depthTestCell(depth: number): Cell {
 	// 511 fails because can't send internal messages with depth >= 512
 	// (and there is one extra indirection)
 	for (const depth of [1, 10, 140, 255, 300, 510]) {
-		await testCell(`Deep (${depth})`, depthTestCell(depth));
+		await testCell(`Deep (d=${depth})`, depthTestCell(depth, d => d, d => d + 1));
+	}
+	for (const bitlen of [325, 326, 330, 334, 339]) {
+		await testCell(`Deep (bl=${bitlen})`, depthTestCell(510, d => d + 10, d => bitlen));
 	}
 }
 
