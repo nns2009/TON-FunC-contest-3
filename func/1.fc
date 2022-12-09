@@ -17,7 +17,7 @@ const Cell_Max_Bits = 1023;
 const Cell_Max_Refs = 4;
 
 
-const int group_max_cells = 15; ;; 30 * 1023 = 30690 < 40000 with some extra room just in case
+const int group_max_cells = 25; ;; 30 * 1023 = 30690 < 40000 with some extra room just in case
 
 
 const int groups_dict_len = 10; ;; Should store up to 255 entries, but let's be safe
