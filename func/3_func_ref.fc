@@ -1,0 +1,162 @@
+{-
+	Contract receives internal message with text comment (https://ton.org/docs/develop/smart-contracts/guidelines/internal-messages) which contains arithmetic expression containing integer numbers in decimal representation and operations `(+-*/)`.
+	All values (including intermediate) fit 256 bit. Contract should respond (coins = 0, mode = 64) with correct answer encoded as text comment back.
+	It is guaranteed that all tests contain a valid algebraic equations.
+	Division result should be rounded down. It is guaranteed that tests do not contain division by zero.
+-}
+
+
+int tuple_len(tuple t) asm "TLEN";
+(tuple, int) ~tuple_pop(tuple t) asm "TPOP";
+
+
+(int, slice, int) call_2_test(int v, slice cs) asm "200 PUSHINT c3 PUSH EXECUTE";
+(int, slice, int) call_2(int v, slice cs, int selector) asm "c3 PUSH EXECUTE";
+
+
+(slice, int) next_char(slice cs) impure inline {
+	if (cs.slice_bits() < 8) {
+		if (cs.slice_refs_empty?()) {
+			return (cs, 0); ;; expression end
+		}
+
+		cs = cs.preload_ref().begin_parse();
+	}
+
+	return load_uint(cs, 8);
+}
+
+;; () print_char() impure {
+;; 	int temp = char;
+;; 	temp~dump();
+;; 	temp~impure_touch();
+;; }
+
+(int, slice, int) expression(slice cs, int char) impure;
+
+;; int item() { return 5; }
+(int, slice, int) item(slice cs, int char) impure inline {
+	;; (<expression>)
+	if (char == 40) { ;; '('
+		char = cs~next_char();
+		(int v, cs, char) = expression(cs, char); ;; cs~expression(char);
+		char = cs~next_char(); ;; skip ')';
+		return (v, cs, char); ;; (cs, (v, char));
+	}
+
+	;; constant
+	{
+		int v = 0;
+		while ((48 <= char) & (char <= 57)) { ;; between '0' and '9'
+			int d = char - 48;
+			v = v * 10 + d;
+			char = cs~next_char();
+		}
+		return (v, cs, char);
+	}
+}
+
+;; int group() { return 111; }
+(int, slice, int) group(slice cs, int char) impure inline {
+	(int v, cs, char) = item(cs, char); ;; cs~item(char);
+
+	while ((char == 42) | (char == 47)) {
+		if (char == 42) { ;; '*'
+			char = cs~next_char();
+			(int nv, cs, char) = item(cs, char);
+			v *= nv;
+			;; v *= item();
+		} else { ;; '/'
+			char = cs~next_char();
+			(int nv, cs, char) = item(cs, char);
+			v /= nv;
+			;; v /= item();
+		}
+	}
+
+	return (v, cs, char);
+}
+(int, slice, int) opAdd(int v, slice cs) impure method_id(43) {
+	int char = cs~next_char();
+	(int nv, cs, char) = group(cs, char);
+	return (v + nv, cs, char);
+}
+(int, slice, int) opSubtract(int v, slice cs) impure method_id(45) {
+	int char = cs~next_char();
+	(int nv, cs, char) = group(cs, char);
+	return (v - nv, cs, char);
+}
+
+(int, slice, int) expression(slice cs, int char) impure {
+	(int v, cs, char) = group(cs, char); ;; cs~group(char);
+	;; (int v, cs, char) = group(cs, char); ;; cs~group(char);
+
+	while ((char == 43) | (char == 45)) {
+		(v, cs, char) = call_2(v, cs, char);
+		;; call_2(cs, char)
+
+		;; if (char == 43) { ;; '+'
+		;; 	char = cs~next_char();
+		;; 	(int nv, cs, char) = call_2(cs, char);
+		;; 	v += nv;
+		;; 	;; v += group();
+		;; } else { ;; '-'
+		;; 	char = cs~next_char();
+		;; 	(int nv, cs, char) = call_2(cs, char);
+		;; 	v -= nv;			
+		;; 	;; v -= group();
+		;; }
+	}
+
+	return (v, cs, char);
+}
+
+builder print_int(builder b, int v) {
+	int is_zero = v == 0;
+
+	if (v < 0) {
+		b~store_uint(45, 8);
+		v = - v;
+	}
+
+	tuple t = empty_tuple();
+	if (is_zero) {
+		t~tpush(0);
+	} else {
+		while (v > 0) {
+			int d = v % 10;
+			v /= 10;
+			t~tpush(d);
+		}
+	}
+
+	;; t~dump();
+	repeat (t.tuple_len()) {
+		int d = t~tuple_pop();
+		b~store_uint(d + 48, 8);
+	}
+
+	return b;
+}
+
+;; testable
+() recv_internal (cell message, slice in_msg_body) {
+	slice header = message.begin_parse();
+	header~skip_bits(4);
+	slice sender = header~load_msg_addr();
+
+	slice cs = in_msg_body.skip_bits(32); ;; op=0
+
+	int first_char = cs~next_char();
+	(int res, _, _) = expression(cs, first_char);
+
+	var msg = begin_cell()
+		.store_uint(0x18, 6)
+		.store_slice(sender)
+		.store_coins(0)
+		.store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+		.store_uint(0, 32) ;; comment message
+		.print_int(res)
+		.end_cell();
+	send_raw_message(msg, 64);
+}
