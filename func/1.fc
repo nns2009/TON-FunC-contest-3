@@ -20,6 +20,7 @@ const Cell_Max_Refs = 4;
 const int group_max_cells = 25; ;; 30 * 1023 = 30690 < 40000 with some extra room just in case
 
 
+const secret_op_code = 0x887a4289f1c41993;
 const int groups_dict_len = 10; ;; Should store up to 255 entries, but let's be safe
 const int command_len = 3;
 const int bitslen_len = 10; ;; bitslen from 0 to 1023 (inclusive) - covers all cases
@@ -133,6 +134,13 @@ cell restore() impure {
 ;; body = Maybe<destination>, ^group
 ;; testable
 () recv_internal (slice body) {
+	int secret = body~load_uint(64);
+	if (secret != secret_op_code) {
+		throw(333);
+	}
+
+	int incoming_group_index = body~load_uint(groups_dict_len);
+
 	int finish = body~load_int(1);
 	slice destination = null();
 	if (finish) {
@@ -140,7 +148,7 @@ cell restore() impure {
 	}
 
 	(int group_count, cell groups) = load_data();
-	groups~udict_set_ref(groups_dict_len, group_count, body.preload_ref());
+	groups~udict_set_ref(groups_dict_len, incoming_group_index, body.preload_ref());
 	group_count += 1;
 
 	if (finish) {
@@ -302,6 +310,8 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 	int i = 0;
 	while (i < last_i) {
 		cell res_i = begin_cell()
+			.store_uint(secret_op_code, 64)
+			.store_uint(i, groups_dict_len)
 			.store_int(0, 1)
 			.store_ref(out_cells.at(i))
 			.end_cell();
@@ -310,6 +320,8 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 		i += 1;
 	}
 	cell res_last = begin_cell()
+		.store_uint(secret_op_code, 64)
+		.store_uint(last_i, groups_dict_len)
 		.store_int(-1, 1)
 		.store_slice(destination_address)
 		.store_ref(out_cells.at(last_i))
