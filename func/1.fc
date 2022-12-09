@@ -337,6 +337,11 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 
 	;; out_cells = out_cells.tpush(test_cell());
 	;; return out_cells;
+	int some_var = 0;
+	while (some_var < 100000) {
+		some_var += 1;
+	}
+	some_var~impure_touch();
 
 	cells_count = 0;
 	cell_to_index = new_dict();
