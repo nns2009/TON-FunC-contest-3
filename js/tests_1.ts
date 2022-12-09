@@ -50,6 +50,8 @@ async function testCell(name: string, bigCell: Cell) {
 
 	const gasUsages = [];
 
+	let groupMinBits = Number.MAX_VALUE;
+
 	let groupMaxBits = -1;
 	let groupMaxCells = -1;
 	let groupMaxDepth = -1;
@@ -63,6 +65,11 @@ async function testCell(name: string, bigCell: Cell) {
 		groupMaxCells = Math.max(groupMaxCells, groupTotals.cells);
 		groupMaxDepth = Math.max(groupMaxDepth, group.getMaxDepth());
 		groupMaxBocSize = Math.max(groupMaxBocSize, group.toBoc({ idx: false }).length); // bytes
+
+		// Exclude the last group, which is expected to be smaller
+		if (i + 1 < groups.length) {
+			groupMinBits = Math.min(groupMinBits, groupTotals.bits);
+		}
 		// !!! Verify group
 		// console.log(`Group ${i}: len=${group.beginParse().remaining}`); //, bits:${group.bits}`);
 
@@ -119,7 +126,7 @@ async function testCell(name: string, bigCell: Cell) {
 		}
 	}
 
-	console.log(`Test ${currentTestIndex} "${name}" passed. Gas: decomposit=${decompositeGas}, last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Max depth: ${bigCell.getMaxDepth()}, total cells: ${cellTotals.cells}, total bits: ${cellTotals.bits}. Groups: ${groups.length}, max depth: ${groupMaxDepth}, max cells: ${groupMaxCells}, max bits: ${groupMaxBits}, max boc size: ${groupMaxBocSize * 8}`);
+	console.log(`Test ${currentTestIndex} "${name}" passed. Gas: decomposit=${decompositeGas}, last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Depth: ${bigCell.getMaxDepth()}, cells: ${cellTotals.cells}, bits: ${cellTotals.bits}. Groups: ${groups.length}, max depth: ${groupMaxDepth}, min cells: ${groupMinBits}, max cells: ${groupMaxCells}, max bits: ${groupMaxBits}, max boc size: ${groupMaxBocSize * 8}`);
 
 	currentTestIndex++;
 }
@@ -185,57 +192,123 @@ async function testCell(name: string, bigCell: Cell) {
 // 	}
 // }
 
-function randomTestCell(childCountDistribution: number[], maxDepth: number): Cell {
-	function dfs(level: number): Cell {
-		let contentLen = Math.floor(Math.random()**2 * 990) + 32;
-		if (Math.random() < 0.05) contentLen = 1023;
-		else if (Math.random() < 0.05) contentLen = 0;
 
-		const res = contentLen < 32
-			? cell()
-			: suint(
-				Math.floor(Math.random() * 1000**3),
-				contentLen
-			);
-		if (level >= maxDepth) {
-			return res;
-		}
+// function randomTestCell(childCountDistribution: number[], maxDepth: number): Cell {
+// 	function dfs(level: number): Cell {
+// 		let contentLen = Math.floor(Math.random()**2 * 990) + 32;
+// 		if (Math.random() < 0.05) contentLen = 1023;
+// 		else if (Math.random() < 0.05) contentLen = 0;
 
-		let r = Math.random();
-		let i;
-		for (i = 0; i < childCountDistribution.length; i++) {
-			if (r < childCountDistribution[i])
-				break;
-			r -= childCountDistribution[i];
-		}
+// 		const res = contentLen < 32
+// 			? cell()
+// 			: suint(
+// 				Math.floor(Math.random() * 1000**3),
+// 				contentLen
+// 			);
+// 		if (level >= maxDepth) {
+// 			return res;
+// 		}
 
-		const childCount = i;
-		for (let i = 0; i < childCount; i++) {
-			res.withReference(dfs(level + 1));
+// 		let r = Math.random();
+// 		let i;
+// 		for (i = 0; i < childCountDistribution.length; i++) {
+// 			if (r < childCountDistribution[i])
+// 				break;
+// 			r -= childCountDistribution[i];
+// 		}
+
+// 		const childCount = i;
+// 		for (let i = 0; i < childCount; i++) {
+// 			res.withReference(dfs(level + 1));
+// 		}
+// 		return res;
+// 	}
+
+// 	return dfs(0);
+// }
+// {
+// 	//let maxDepth = 18;
+// 	for (let ri = 0; ri < 100; ri++) {
+// 		let cell = null;
+// 		while (true) {
+// 			cell = randomTestCell([0.4, 0.35, 0.1, 0.1], 80);
+// 			// cell = randomTestCell([0.3, 0.35, 0.1, 0.1], 18);
+// 			const totals = getCellTotals(cell);
+// 			if (totals.cells < 100) continue;
+// 			if (totals.bits >= 2000000) continue;
+// 			if (totals.cells >= 50000) continue;
+// 			break;
+// 		}
+// 		await testCell(`Random`, cell);
+// 	}
+// 	// for (let maxDepth of [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]) {
+// 	// 	await testCell(`Random`, randomTestCell([0.3, 0.35, 0.1, 0.1], maxDepth));
+// 	// }
+// }
+
+
+
+function randomTreeGrowCell(
+	depth: number,
+	cellCount: number,
+	targetTotalBits: number,
+): Cell {
+	const cellsWithRefSpace = [];
+	let currentCellCount = 0;
+	let currentTotalBits = 0;
+
+	function cellWithRandomContent(): Cell {
+		const remainingCellCount = cellCount - currentCellCount;
+		const remainingTotalBits = Math.max(targetTotalBits - currentTotalBits, 0);
+
+		const averagePerCell = remainingTotalBits / remainingCellCount;
+		const upperRange = 2 * averagePerCell;
+
+		// let bitlen = Math.round(Math.random() * upperRange);
+		// if (bitlen > 1023) bitlen = 1023;
+		let bitlen = (Math.random() < averagePerCell / 1023) ? 1023 : 0;
+
+		const c = cell();
+		for (let i = 0; i < bitlen; i++) {
+			c.bits.writeBit(Math.random() < 0.5);
 		}
-		return res;
+		currentCellCount += 1;
+		currentTotalBits += bitlen;
+
+		return c;
 	}
 
-	return dfs(0);
+	let child = null;
+	for (let i = depth; i >= 0; i--) {
+		const container = cellWithRandomContent();
+		if (child) {
+			container.withReference(child);
+		}
+		cellsWithRefSpace.push(container);
+
+		child = container;
+	}
+
+	while (currentCellCount < cellCount) {
+		const randomIndex = Math.floor(Math.random() * cellsWithRefSpace.length);
+		const randomCell = cellsWithRefSpace[randomIndex];
+
+		const newCell = cellWithRandomContent();
+		randomCell.withReference(newCell);
+		if (randomCell.refs.length < 4) {
+			cellsWithRefSpace.push(newCell);
+		} else {
+			cellsWithRefSpace[randomIndex] = newCell;
+		}
+	}
+
+	return child!;
 }
 {
-	//let maxDepth = 18;
 	for (let ri = 0; ri < 100; ri++) {
-		let cell = null;
-		while (true) {
-			cell = randomTestCell([0.4, 0.35, 0.1, 0.1], 80);
-			// cell = randomTestCell([0.3, 0.35, 0.1, 0.1], 18);
-			const totals = getCellTotals(cell);
-			// if (totals.cells < 100) continue;
-			if (totals.bits >= 2000000) continue;
-			if (totals.cells >= 50000) continue;
-			break;
-		}
+		let cell = randomTreeGrowCell(495, 4000, 1000000);
 		await testCell(`Random`, cell);
 	}
-	// for (let maxDepth of [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]) {
-	// 	await testCell(`Random`, randomTestCell([0.3, 0.35, 0.1, 0.1], maxDepth));
-	// }
 }
 
 
