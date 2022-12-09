@@ -5,39 +5,46 @@
 	Division result should be rounded down. It is guaranteed that tests do not contain division by zero.
 -}
 
-
 int tuple_len(tuple t) asm "TLEN";
 (tuple, int) ~tuple_pop(tuple t) asm "TPOP";
 
 
-(slice, int) next_char(slice cs) impure inline {
+global int char;
+global slice cs;
+
+
+() next_char() impure inline {
 	if (cs.slice_bits() < 8) {
 		if (cs.slice_refs_empty?()) {
-			return (cs, 0); ;; expression end
+			char = 0; ;; expression end
+			return ();
 		}
 
 		cs = cs.preload_ref().begin_parse();
 	}
 
-	return load_uint(cs, 8);
+	;; This stupid indirection is required for FunC compiler to work
+	(slice cs2, int char2) = cs.load_uint(8);
+	cs = cs2;
+	char = char2;
 }
 
-;; () print_char() impure {
-;; 	int temp = char;
-;; 	temp~dump();
-;; 	temp~impure_touch();
-;; }
+() print_char() impure {
+	int temp = char;
+	temp~dump();
+	temp~impure_touch();
+}
 
-(slice, (int, int)) ~expression(slice cs, int char) impure;
+int expression() impure;
 
 ;; int item() { return 5; }
-(slice, (int, int)) ~item(slice cs, int char) impure {
+int item() impure {
 	;; (<expression>)
 	if (char == 40) { ;; '('
-		char = cs~next_char();
-		(int v, char) = cs~expression(char);
-		char = cs~next_char(); ;; skip ')';
-		return (cs, (v, char));
+		next_char();
+		int v = expression();
+		next_char(); ;; skip ')';
+		return v;
 	}
 
 	;; constant
@@ -46,51 +53,43 @@ int tuple_len(tuple t) asm "TLEN";
 		while ((48 <= char) & (char <= 57)) { ;; between '0' and '9'
 			int d = char - 48;
 			v = v * 10 + d;
-			char = cs~next_char();
+			next_char();
 		}
-		return (cs, (v, char));
+		return v;
 	}
 }
 
 ;; int group() { return 111; }
-(slice, (int, int)) ~group(slice cs, int char) impure {
-	(int v, char) = cs~item(char);
+int group() impure {
+	int v = item();
 
 	while ((char == 42) | (char == 47)) {
 		if (char == 42) { ;; '*'
-			char = cs~next_char();
-			(int nv, char) = cs~item(char);
-			v *= nv;
-			;; v *= item();
+			next_char();
+			v *= item();
 		} else { ;; '/'
-			char = cs~next_char();
-			(int nv, char) = cs~item(char);
-			v /= nv;
-			;; v /= item();
+			next_char();
+			v /= item();
 		}
 	}
 
-	return (cs, (v, char));
+	return v;
 }
 
-(slice, (int, int)) ~expression(slice cs, int char) impure {
-	(int v, char) = cs~group(char);
+int expression() impure {
+	int v = group();
 
 	while ((char == 43) | (char == 45)) {
 		if (char == 43) { ;; '+'
-			char = cs~next_char();
-			(int nv, char) = cs~group(char);
-			v += nv;
-			;; v += group();
+			next_char();
+			v += group();
 		} else { ;; '-'
-			char = cs~next_char();
-			(int nv, char) = cs~group(char);
-			v -= nv;			
-			;; v -= group();
+			next_char();
+			v -= group();
 		}
 	}
 
-	return (cs, (v, char));
+	return v;
 }
 
 builder print_int(builder b, int v) {
@@ -127,10 +126,11 @@ builder print_int(builder b, int v) {
 	header~skip_bits(4);
 	slice sender = header~load_msg_addr();
 
-	slice cs = in_msg_body.skip_bits(32); ;; op=0
+	cs = in_msg_body.skip_bits(32); ;; op=0
+	next_char();
+	;; print_char();
 
-	int first_char = cs~next_char();
-	(int res, _) = cs~expression(first_char);
+	int res = expression();
 
 	var msg = begin_cell()
 		.store_uint(0x18, 6)
