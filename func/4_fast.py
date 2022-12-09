@@ -86,15 +86,17 @@ def double_XZ(XZ):
 		4*X*Z*(X**2 + A*X*Z + Z**2) % prime
 	)
 
-def add_neighbour_XZ(XZ0, XZ1, x):
-	X0, Z0 = XZ0
+def add_neighbour_XZ(XZ1, XZ2, x):
 	X1, Z1 = XZ1
+	X2, Z2 = XZ2
 	return (
-		(X0*X1 - Z0*Z1) ** 2 % prime,
-		x*(X0*Z1 - X1*Z0) ** 2 % prime
+		(X1*X2 - Z1*Z2) ** 2 % prime,
+		x*(X1*Z2 - X2*Z1) ** 2 % prime
 	)
 
-
+# Formulas for multiplication from:
+# https://www.cl.cam.ac.uk/teaching/2122/Crypto/curve25519.pdf
+# starting from page 23
 def mul_x_fast(x, n):
 	xz0 = (x, 1)
 	xz1 = double_XZ(xz0)
@@ -173,11 +175,12 @@ for i in range(3, mul_test_max + 1):
 	cur = add_points(cur, base_point)
 	ps_seq += [cur]
 
-mul_test_show = 7
+mul_test_show = 9
 
 print('----- Sequential addition -----')
 for i in range(1, mul_test_show):
-	print(f'{i}: seq={ps_seq[i][0]} mul={mul_x_fast(base_x, i)}')
+	print(f'P*{i}: seq={ps_seq[i]}')
+	# print(f'{i}: seq={ps_seq[i][0]} mul={mul_x_fast(base_x, i)}')
 
 mul_correct = True
 for i in range(1, mul_test_max + 1):

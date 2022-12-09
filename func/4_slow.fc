@@ -95,28 +95,36 @@ int div(int a, int b) { return divide_mod(a, b, prime); }
 	return (x3, y3);
 }
 
-(int, int) double_XZ(int X, int Z) {
-	;; (X**2 - Z**2) ** 2 % prime
-	int NX = sqr((sqr(X) - sqr(Z)) % prime);
-	;; 4*X*Z*(X**2 + A*X*Z + Z**2) % prime
-	int NZ = mult(4, mult(X, mult(Z,
-		( (sqr(X) + mult(A, mult(X, Z))) % prime + sqr(Z) ) % prime
-	)));
-	
-	return (NX, NZ);
+int double_x(int x) {
+	;; (3*x*x + 2*A*x + 1) ** 2
+	int numerator = mult(3, sqr(x));
+	numerator = (numerator + mult(mult(2, A), x) + 1) % prime;
+	numerator = sqr(numerator);
+
+	;; 4 * (x**3 + A*x**2 + x)
+	int denominator = pow3(x);
+	denominator = (denominator + mult(A, sqr(x))) % prime;
+	denominator = (denominator + x) % prime;
+	denominator = mult(4, denominator);
+
+	int dx = div(numerator, denominator);
+	dx = (dx - A) % prime;
+	dx = (dx - mult(2, x)) % prime;
+
+	return dx;
 }
 
-(int, int) add_neighbour_XZ(int X1, int Z1, int X2, int Z2, base_x) {
-	return (
-		sqr((mult(X1, X2) - mult(Z1, Z2)) % prime),
-		mult(base_x, sqr((mult(X1, Z2) - mult(X2, Z1)) % prime))
+int add_neighbour_xs(x1, x2, base_x) {
+	return div(
+		sqr((mult(x1, x2) - 1) % prime),
+		mult(base_x, sqr((x2 - x1) % prime))
 	);
 }
 
 ;; testable
 int mul(int x1, int factor) method_id {
-	var (X0, Z0) = (x1, 1);
-	var (X1, Z1) = double_XZ(X0, Z0);
+	int vi0 = x1;
+	int vi1 = double_x(x1);
 	int skip = -1;
 
 	int i = 256;
@@ -128,23 +136,21 @@ int mul(int x1, int factor) method_id {
 				skip = 0;
 			}
 		} else {
-			var (lowX, lowZ) = double_XZ(X0, Z0);
-			var (midX, midZ) = add_neighbour_XZ(X0, Z0, X1, Z1, x1);
-			var (highX, highZ) = double_XZ(X1, Z1);
+			int low = double_x(vi0);
+			int mid = add_neighbour_xs(vi0, vi1, x1);
+			int high = double_x(vi1);
 
 			if (bit) {
-				(X0, Z0) = (midX, midZ); ;; vi0 = mid;
-				(X1, Z1) = (highX, highZ); ;; vi1 = high;
+				vi0 = mid;
+				vi1 = high;
 			} else {
-				(X0, Z0) = (lowX, lowZ); ;; vi0 = low;
-				(X1, Z1) = (midX, midZ); ;; vi1 = mid;
+				vi0 = low;
+				vi1 = mid;
 			}
 		}
 	}
 
-	int res_x = div(X0, Z0);
-
-	return res_x;
+	return vi0;
 }
 
 () recv_internal () {
