@@ -1,4 +1,5 @@
 import BN from 'bn.js';
+import { sample } from 'lodash-es';
 import { Address, Cell, CommentMessage, Slice } from 'ton';
 import { stackCell, stackSlice } from 'ton-contract-executor';
 
@@ -135,31 +136,45 @@ async function testCell(name: string, bigCell: Cell) {
 
 // await testCell('Empty', cell());
 // await testCell('Small Flat', cell(suint(5, 40), suint(13, 24)));
-// await testCell('1-level fork',
-// 	cell(suint(123, 41))
-// 	.withReference(suint(150, 299))
-// 	.withReference(suint(180, 512))
-// 	.withReference(suint(900900, 1023))
-// )
-// await testCell('2-level fork',
-// 	suint(123456, 41)
-// 	.withReference(
-// 		suint(150, 299)
-// 		.withReference(suint(100100, 32))
-// 		.withReference(suint(100200, 33))
-// 	).withReference(
-// 		suint(180, 512)
-// 		.withReference(suint(200100, 42))
-// 		.withReference(suint(200200, 43))
-// 		.withReference(suint(200300, 44))
-// 	).withReference(
-// 		suint(900900, 1023)
-// 		.withReference(suint(300100, 52))
-// 		.withReference(suint(300200, 53))
-// 		.withReference(suint(300300, 54))
-// 		.withReference(suint(300400, 55))
-// 	)
-// )
+const test1fork = cell(suint(123, 41))
+	.withReference(suint(150, 299))
+	.withReference(suint(180, 512))
+	.withReference(suint(900900, 1023));
+await testCell('1-level fork', test1fork);
+
+const test2fork = suint(123456, 41)
+	.withReference(
+		suint(150, 299)
+		.withReference(suint(100100, 32))
+		.withReference(suint(100200, 33))
+	).withReference(
+		suint(180, 512)
+		.withReference(suint(200100, 42))
+		.withReference(suint(200200, 43))
+		.withReference(suint(200300, 44))
+	).withReference(
+		suint(900900, 1023)
+		.withReference(suint(300100, 52))
+		.withReference(suint(300200, 53))
+		.withReference(suint(300300, 54))
+		.withReference(suint(300400, 55))
+	);
+await testCell('2-level fork', test2fork);
+
+const testLadder1 = suint(111, 21);
+const testLadder2 = suint(2222, 22).withReference(testLadder1).withReference(testLadder1);
+const testLadder3 = suint(33333, 23).withReference(testLadder2).withReference(testLadder1).withReference(testLadder2);
+const testLadder4 = suint(444444, 24).withReference(testLadder3).withReference(testLadder1).withReference(testLadder2);
+const testLadder5 = suint(5555555, 25).withReference(testLadder1).withReference(testLadder2).withReference(testLadder3).withReference(testLadder4);
+
+await testCell('Ladder 1', testLadder1);
+await testCell('Ladder 2', testLadder2);
+await testCell('Ladder 3', testLadder3);
+await testCell('Ladder 4', testLadder4);
+await testCell('Ladder 5', testLadder5);
+
+const testTreeParts = [test1fork, test2fork, testLadder1, testLadder2, testLadder3, testLadder4, testLadder5];
+
 // await testCell('1023 x 0', zeros(1023));
 // await testCell('1023 x 1', ones(1023));
 // await testCell('1022 x 0', zeros(1022));
@@ -252,8 +267,10 @@ function randomTreeGrowCell(
 	depth: number,
 	cellCount: number,
 	targetTotalBits: number,
+	prefabs: Cell[],
+	prefabsCount: number,
 ): Cell {
-	const cellsWithRefSpace = [];
+	const cellsWithRefSpace: Cell[] = [];
 	let currentCellCount = 0;
 	let currentTotalBits = 0;
 
@@ -264,9 +281,9 @@ function randomTreeGrowCell(
 		const averagePerCell = remainingTotalBits / remainingCellCount;
 		const upperRange = 2 * averagePerCell;
 
-		// let bitlen = Math.round(Math.random() * upperRange);
-		// if (bitlen > 1023) bitlen = 1023;
-		let bitlen = (Math.random() < averagePerCell / 1023) ? 1023 : 0;
+		let bitlen = Math.round(Math.random() * upperRange);
+		if (bitlen > 1023) bitlen = 1023;
+		// let bitlen = (Math.random() < averagePerCell / 1023) ? 1023 : 0;
 
 		const c = cell();
 		for (let i = 0; i < bitlen; i++) {
@@ -302,11 +319,25 @@ function randomTreeGrowCell(
 		}
 	}
 
+	for (let i = 0; i < prefabsCount; i++) {
+		if (cellsWithRefSpace.length === 0) {
+			throw new Error(`randomTreeGrowCell: not enough cells with a free ref space to place a "prefab"`);
+		}
+		const randomIndex = Math.floor(Math.random() * cellsWithRefSpace.length);
+		const randomCell = cellsWithRefSpace[randomIndex];
+		
+		const prefab = sample(prefabs)!;
+		randomCell.withReference(prefab);
+		if (randomCell.refs.length >= 4) {
+			cellsWithRefSpace[randomIndex] = cellsWithRefSpace.pop()!;
+		}
+	}
+
 	return child!;
 }
 {
 	for (let ri = 0; ri < 100; ri++) {
-		let cell = randomTreeGrowCell(495, 4000, 1000000);
+		let cell = randomTreeGrowCell(300, 5000, 1200000, testTreeParts, 500);
 		await testCell(`Random`, cell);
 	}
 }

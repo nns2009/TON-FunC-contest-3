@@ -24,12 +24,14 @@ const secret_op_code = 0x887a4289f1c41993;
 const int groups_dict_len = 10; ;; Should store up to 255 entries, but let's be safe
 const int command_len = 3;
 const int bitslen_len = 10; ;; bitslen from 0 to 1023 (inclusive) - covers all cases
+const int cell_index_len = 16; ;; should fit 4000 unique cells
 
 const int create_builder_code = 4;
 ;; const int push_ref_code = 2;
 ;; const int push_bits_code = 3;
 const int end_builder_code = 5;
 ;; const int command_send_code = 5;
+const int load_by_index_code = 6;
 
 
 (int, cell) load_data() {
@@ -100,6 +102,8 @@ slice read_bits() impure {
 	return read_slice(bitslen);
 }
 
+global cell restore_cells;
+global int restore_cell_count;
 
 cell restore() impure {
 	;; ~dump(100300500);
@@ -114,6 +118,12 @@ cell restore() impure {
 			cell child = restore();
 			b = b.store_ref(child);
 		}
+		elseif (op_code == load_by_index_code) {
+			int index = read_uint(cell_index_len);
+			(cell child, int f) = restore_cells.udict_get_ref?fixed(cell_index_len, index);
+			;; f should always be found
+			b = b.store_ref(child);
+		}
 		elseif (op_code == end_builder_code) {
 			slice bits = read_bits();
 			b = b.store_slice(bits);
@@ -122,12 +132,12 @@ cell restore() impure {
 		}
 	} until (leave);
 
-	;; cell res = b.end_cell();
-	;; res~dump();
+	cell res = b.end_cell();
+	restore_cells = restore_cells.udict_set_ref(cell_index_len, restore_cell_count, res);
+	restore_cell_count += 1;
 
 	;; ~dump(100300999);
-	return b.end_cell();
-	;; unreachable, but stupid FunC compiler complanes about return type
+	return res;
 }
 
 
@@ -162,6 +172,9 @@ cell restore() impure {
 			;; f has to be "true", because we are iterating through "known" indexes
 			in_cs = group.begin_parse();
 		}
+
+		restore_cells = new_dict();
+		restore_cell_count = 0;
 
 		read_op_code(); ;; Skip the first instruction, it should always be "create_builder"
 		cell full = restore();
@@ -269,13 +282,30 @@ builder write_structure_advance(int len) impure {
 () create_builder() impure {
 	write_op_code(create_builder_code);
 }
+() load_by_index(int index) impure {
+	write_op_code(load_by_index_code);
+	write_uint(index, cell_index_len);
+}
 () end_builder(slice bits) impure {
 	write_op_code(end_builder_code);
 	write_bits(bits);
 }
 
 
+global int cells_count;
+global cell cell_to_index;
+
 () flatten(cell c) impure {
+	int c_hash = c.cell_hash();
+	
+	(slice cs, int f) = cell_to_index.udict_get?(256, c_hash);
+	if (f) {
+		int index = cs.preload_uint(cell_index_len);
+		load_by_index(index);
+		;; return index;
+		return ();
+	}
+
 	create_builder();
 
 	slice cs = c.begin_parse();
@@ -285,6 +315,13 @@ builder write_structure_advance(int len) impure {
 	}
 
 	end_builder(cs);
+	
+	int index = cells_count;
+	cell_to_index = cell_to_index.udict_set_builder(
+		256, c_hash,
+		begin_cell().store_uint(index, cell_index_len)
+	);
+	cells_count += 1;
 }
 
 slice test_slice() asm "b{010110111} PUSHSLICE";
@@ -301,6 +338,8 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 	;; out_cells = out_cells.tpush(test_cell());
 	;; return out_cells;
 
+	cells_count = 0;
+	cell_to_index = new_dict();
 	flatten(big_cell);
 	collapse_remaining_builders();
 
