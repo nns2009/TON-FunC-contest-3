@@ -140,18 +140,19 @@ cell restore() impure {
 	}
 
 	int incoming_group_index = body~load_uint(groups_dict_len);
-
-	int finish = body~load_int(1);
-	slice destination = null();
-	if (finish) {
-		destination = body~load_msg_addr(); ;; ! Move down
+	int group_count = 0;
+	cell groups = new_dict();
+	if (incoming_group_index > 0) {
+		(group_count, groups) = load_data();
 	}
 
-	(int group_count, cell groups) = load_data();
 	groups~udict_set_ref(groups_dict_len, incoming_group_index, body.preload_ref());
 	group_count += 1;
 
+	int finish = body~load_int(1);
 	if (finish) {
+		slice destination = body~load_msg_addr();
+
 		in_cells_count = group_count;
 		in_cells_index = 0;
 		in_cells = groups;
@@ -183,11 +184,13 @@ cell restore() impure {
 		;; 	i += 1;
 		;; }
 
-		save_data(0, new_dict()); ;; Wipe state
-	} else {
-		save_data(group_count, groups);
 	}
+	;; 	save_data(0, new_dict()); ;; Wipe state
+	;; } else {
+	;; 	save_data(group_count, groups);
+	;; }
 
+	save_data(group_count, groups);
 }
 
 

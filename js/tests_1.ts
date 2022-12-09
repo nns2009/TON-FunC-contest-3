@@ -226,7 +226,7 @@ function randomTestCell(childCountDistribution: number[], maxDepth: number): Cel
 			cell = randomTestCell([0.4, 0.35, 0.1, 0.1], 80);
 			// cell = randomTestCell([0.3, 0.35, 0.1, 0.1], 18);
 			const totals = getCellTotals(cell);
-			if (totals.cells < 100) continue;
+			// if (totals.cells < 100) continue;
 			if (totals.bits >= 2000000) continue;
 			if (totals.cells >= 50000) continue;
 			break;
