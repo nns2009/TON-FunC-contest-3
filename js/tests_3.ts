@@ -6,7 +6,7 @@ import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithR
 
 
 let initialData = cell();
-let contract = await contractLoader('./../func/stdlib.fc', './../func/3.fc')(initialData);
+let contract = await contractLoader(['./../func/stdlib.fc', './../func/3.fc'], './../fift/3.fif')(initialData);
 
 let totalGas = 0;
 async function testExpression(expression: string) {

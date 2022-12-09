@@ -28,16 +28,16 @@ int tuple_len(tuple t) asm "TLEN";
 ;; 	temp~impure_touch();
 ;; }
 
-(slice, (int, int)) ~expression(slice cs, int char) impure;
+(int, slice, int) expression(slice cs, int char) impure;
 
 ;; int item() { return 5; }
-(slice, (int, int)) ~item(slice cs, int char) impure {
+(int, slice, int) item(slice cs, int char) impure {
 	;; (<expression>)
 	if (char == 40) { ;; '('
 		char = cs~next_char();
-		(int v, char) = cs~expression(char);
+		(int v, cs, char) = expression(cs, char); ;; cs~expression(char);
 		char = cs~next_char(); ;; skip ')';
-		return (cs, (v, char));
+		return (v, cs, char); ;; (cs, (v, char));
 	}
 
 	;; constant
@@ -48,49 +48,49 @@ int tuple_len(tuple t) asm "TLEN";
 			v = v * 10 + d;
 			char = cs~next_char();
 		}
-		return (cs, (v, char));
+		return (v, cs, char);
 	}
 }
 
 ;; int group() { return 111; }
-(slice, (int, int)) ~group(slice cs, int char) impure {
-	(int v, char) = cs~item(char);
+(int, slice, int) group(slice cs, int char) impure {
+	(int v, cs, char) = item(cs, char); ;; cs~item(char);
 
 	while ((char == 42) | (char == 47)) {
 		if (char == 42) { ;; '*'
 			char = cs~next_char();
-			(int nv, char) = cs~item(char);
+			(int nv, cs, char) = item(cs, char);
 			v *= nv;
 			;; v *= item();
 		} else { ;; '/'
 			char = cs~next_char();
-			(int nv, char) = cs~item(char);
+			(int nv, cs, char) = item(cs, char);
 			v /= nv;
 			;; v /= item();
 		}
 	}
 
-	return (cs, (v, char));
+	return (v, cs, char);
 }
 
-(slice, (int, int)) ~expression(slice cs, int char) impure {
-	(int v, char) = cs~group(char);
+(int, slice, int) expression(slice cs, int char) impure {
+	(int v, cs, char) = group(cs, char); ;; cs~group(char);
 
 	while ((char == 43) | (char == 45)) {
 		if (char == 43) { ;; '+'
 			char = cs~next_char();
-			(int nv, char) = cs~group(char);
+			(int nv, cs, char) = group(cs, char);
 			v += nv;
 			;; v += group();
 		} else { ;; '-'
 			char = cs~next_char();
-			(int nv, char) = cs~group(char);
+			(int nv, cs, char) = group(cs, char);
 			v -= nv;			
 			;; v -= group();
 		}
 	}
 
-	return (cs, (v, char));
+	return (v, cs, char);
 }
 
 builder print_int(builder b, int v) {
@@ -130,7 +130,7 @@ builder print_int(builder b, int v) {
 	slice cs = in_msg_body.skip_bits(32); ;; op=0
 
 	int first_char = cs~next_char();
-	(int res, _) = cs~expression(first_char);
+	(int res, _, _) = expression(cs, first_char);
 
 	var msg = begin_cell()
 		.store_uint(0x18, 6)

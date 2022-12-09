@@ -1,0 +1,225 @@
+// automatically generated from `stdlib.fc` `3.fc` 
+PROGRAM{
+  DECLPROC next_char
+  DECLPROC ~expression
+  DECLPROC ~item
+  DECLPROC ~group
+  DECLPROC print_int
+  DECLPROC recv_internal
+  next_char PROCINLINE:<{
+    CONT:<{
+      SAMEALTSAVE
+      DUP
+      SBITS
+      8 LESSINT
+      IF:<{
+        DUP
+        SREMPTY
+        IFJMP:<{
+          0 PUSHINT
+          RETALT
+        }>
+        PLDREF
+        CTOS
+      }>
+      8 LDU
+      SWAP
+    }>
+    EXECUTE
+  }>
+
+  // slice cs, int char
+  ~expression PROC:<{
+    ~group CALLDICT
+    // slice cs, int v, int char
+    WHILE:<{
+      DUP
+      43 EQINT
+      OVER
+      45 EQINT
+      OR
+    }>DO<{
+      43 EQINT
+      IF:<{
+        // slice cs, int v
+        SWAP
+        // int v, slice cs
+        next_char INLINECALLDICT
+        // int v, slice cs, int c
+        ~group CALLDICT
+        // int v, slice cs, int nv, int c
+        s3 s3 XCHG2
+        // int c, slice cs, int v, int nv
+        ADD
+        // int c, slice cs, int v
+      }>ELSE<{
+        SWAP
+        next_char INLINECALLDICT
+        ~group CALLDICT
+        s3 s3 XCHG2
+        SUB
+      }>
+      ROT
+      // slice cs, int v, int c
+    }>
+  }>
+
+  // slice cs, int char
+  ~item PROC:<{
+    DUP
+    // slice cs, int char, int char
+    40 EQINT
+    IFJMP:<{
+      DROP
+      // slice cs
+      next_char INLINECALLDICT
+      // slice cs, char c
+      ~expression CALLDICT
+      // slice cs, int v, char c
+      DROP
+      // slice cs, int v
+      SWAP
+      // int v, slice cs
+      next_char INLINECALLDICT
+      // int v, slice cs, char c
+      s1 s2 XCHG
+      // slice cs, char c, int v ?
+    }>
+
+    // slice cs, char c
+    0 PUSHINT
+    // slice cs, char c, int v
+    WHILE:<{
+      OVER // slice cs, char c, int v, char c
+      47 GTINT // slice cs, char c, int v, bool c1
+      s2 PUSH // slice cs, char c, int v, bool c1, char c
+      58 LESSINT // slice cs, char c, int v, bool c1, bool c2
+      AND // slice cs, char c, int v, bool comp
+    }>DO<{
+      // slice cs, char c, int v
+      SWAP
+      // slice cs, int v, char c
+      -48 ADDCONST
+      SWAP
+      // slice cs, char c, int v
+      10 MULCONST
+      SWAP // ?Why?
+      // slice cs, int v, char c
+      ADD
+      // slice cs, int v
+      SWAP
+      // int v, slice cs
+      next_char INLINECALLDICT
+      // int v, slice cs, char c
+      ROT
+      // slice cs, char c, int v
+    }>
+    SWAP
+    // slice cs, int v, char c
+  }>
+  ~group PROC:<{
+    ~item CALLDICT
+    WHILE:<{
+      DUP
+      42 EQINT
+      OVER
+      47 EQINT
+      OR
+    }>DO<{
+      42 EQINT
+      IF:<{
+        SWAP
+        next_char INLINECALLDICT
+        ~item CALLDICT
+        s3 s3 XCHG2
+        MUL
+      }>ELSE<{
+        SWAP
+        next_char INLINECALLDICT
+        ~item CALLDICT
+        s3 s3 XCHG2
+        DIV
+      }>
+      ROT
+    }>
+  }>
+  print_int PROC:<{
+    DUP
+    0 EQINT
+    OVER
+    0 LESSINT
+    IF:<{
+      45 PUSHINT
+      s0 s3 XCHG2
+      8 STU
+      SWAP
+      NEGATE
+      ROT
+    }>
+    NIL
+    SWAP
+    IF:<{
+      NIP
+      0 PUSHINT
+      TPUSH
+    }>ELSE<{
+      WHILE:<{
+        OVER
+        0 GTINT
+      }>DO<{
+        OVER
+        10 PUSHINT
+        MOD
+        s0 s2 XCHG
+        10 PUSHINT
+        DIV
+        s0 s2 XCHG
+        TPUSH
+      }>
+      NIP
+    }>
+    DUP
+    TLEN
+    REPEAT:<{
+      TPOP
+      48 ADDCONST
+      ROT
+      8 STU
+      SWAP
+    }>
+    DROP
+  }>
+  recv_internal PROC:<{
+    SWAP
+    CTOS
+    4 PUSHINT
+    SDSKIPFIRST
+    LDMSGADDR
+    DROP
+    SWAP
+    32 PUSHINT
+    SDSKIPFIRST
+    next_char INLINECALLDICT
+    ~expression CALLDICT
+    DROP
+    NIP
+    0 PUSHINT
+    DUP
+    24 PUSHINT
+    NEWC
+    6 STU
+    s0 s4 XCHG2
+    STSLICER
+    OVER
+    STGRAMS
+    s1 s3 XCHG
+    107 STU
+    s1 s2 XCHG
+    32 STU
+    SWAP
+    print_int CALLDICT
+    ENDC
+    64 PUSHINT
+    SENDRAWMSG
+  }>
+}END>c

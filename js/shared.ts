@@ -39,6 +39,9 @@ export function readString(filename: string): string {
 	return fs.readFileSync(new URL(filename, import.meta.url), 'utf-8');
 }
 
+export function writeString(path: string, text: string) {
+	fs.writeFileSync(new URL(path, import.meta.url), text, 'utf-8');
+}
 
 export function reverseString(str:string): string {
 	return str.split("").reverse().join("");
@@ -53,7 +56,7 @@ export function bufferEqual(a: Buffer, b: Buffer): boolean {
 
 // ------------------------ Contract functions ------------------------
 
-export const contractLoader = (...filenames: string[]) => {
+export const contractLoader = (filenames: string[], fiftOutputPath?: string) => {
 	const compileConfig = {
 		sources: Object.fromEntries(
 			filenames.map(path =>
@@ -69,6 +72,10 @@ export const contractLoader = (...filenames: string[]) => {
 
 		if (compileResult.status === 'error')
 			throw new Error('Compilation failed: ' + compileResult.message);
+
+		if (fiftOutputPath) {
+			writeString(fiftOutputPath, compileResult.fiftCode);
+		}
 	
 		return await SmartContract.fromCell(
 			Cell.fromBoc(Buffer.from(compileResult.codeBoc, 'base64'))[0],
