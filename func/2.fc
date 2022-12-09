@@ -26,7 +26,7 @@
 	(14, 14)         | (14,14); (5,3)
 -}
 
-(int, cell) load_data() {
+(int, cell) load_data() inline {
 	slice cs = get_data().begin_parse();
 	if (cs.slice_empty?()) {
 		return (0, new_dict());
@@ -34,7 +34,7 @@
 	return (cs~load_uint(4), cs.preload_dict());
 }
 
-() save_data(int count, cell dict) impure {
+() save_data(int count, cell dict) impure inline {
 	set_data(begin_cell()
 		.store_uint(count, 4)
 		.store_dict(dict)
@@ -42,7 +42,7 @@
 	);
 }
 
-() send_message(int value, cell msg) impure {
+() send_message(int value, cell msg) impure inline {
 	var msg = begin_cell()
 		.store_uint(0x18, 6)
 		.store_uint(0, 2) ;; addr_none .store_slice(addr)
