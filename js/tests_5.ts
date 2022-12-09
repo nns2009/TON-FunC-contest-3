@@ -1,7 +1,7 @@
 import BN from 'bn.js';
 import { Address, CommentMessage, Slice } from 'ton';
 
-import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs } from './shared.js';
+import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, invokeGetMethodWithResultsAndLogsGas } from './shared.js';
 
 
 let compiledSources = contractLoader('./../func/stdlib.fc', './../func/5.fc');
@@ -123,8 +123,8 @@ async function testElection(...requests: ParticipateRequest[]) {
 
 
 		console.log('--------- get_stake_table ---------')
-		const [[winners_raw, unused_raw], stakeTableLogs] = await
-			invokeGetMethodWithResultsAndLogs
+		const [[winners_raw, unused_raw], stakeTableLogs, getStakeTableGas] = await
+			invokeGetMethodWithResultsAndLogsGas
 			<[RawResultEntry[], RawResultEntry[]]>(contract, 'get_stake_table', []);
 
 		const winners = winners_raw.map(parseRawResultEntry);
@@ -134,7 +134,7 @@ async function testElection(...requests: ParticipateRequest[]) {
 		console.log('unused:', unused);
 
 		console.log('logs:', stakeTableLogs);
-		console.log('try_elect.gas:', electResult.gas_consumed);
+		console.log(`try_elect.gas: ${electResult.gas_consumed}, get_stake_table.gas: ${getStakeTableGas}`);
 	}
 	
 	console.log()
@@ -153,11 +153,11 @@ try {
 		{ wc: 1, addrHash: 1002, stake: 100, maxFactor: factor_denominator },
 		{ wc: 1, addrHash: 1003, stake: 100, maxFactor: 1 },
 		{ wc: 1, addrHash: 1004, stake: 100, maxFactor: 2 },
-	
+
 		{ wc: 1, addrHash: 1005, stake: 30, maxFactor: factor_denominator * 100 },
 		{ wc: 1, addrHash: 1005, stake: 50, maxFactor: factor_denominator * 90 },
 		{ wc: 1, addrHash: 1005, stake: 20, maxFactor: factor_denominator * 2 },
-	
+
 		{ wc: 3, addrHash: 3001, stake: 50, maxFactor: 10 },
 		{ wc: 3, addrHash: 3001, stake: 35, maxFactor: 10 },
 	);

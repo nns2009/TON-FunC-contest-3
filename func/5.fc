@@ -77,7 +77,7 @@ slice i_address(tuple t) {
 (cell, int) udict_get_ref?fixed(cell dict, int key_len, int index) asm(index dict key_len) "DICTUGETREF" "NULLSWAPIFNOT";
 
 
-(tuple, int) sort_participants_into_tuple(cell participants) {
+(tuple, int) sort_participants_into_tuple(cell participants) impure {
 	tuple ps = empty_tuple();
 	int total_stake = 0;
 
@@ -172,7 +172,7 @@ slice i_address(tuple t) {
 	return (ps, total_stake);
 }
 
-(int, int) optimize_effective_stake(tuple ps) {
+(int, int) optimize_effective_stake(tuple ps) impure {
 	int count = ps.tuple_len();
 	throw_if(555, count < 5);
 
@@ -273,6 +273,9 @@ slice i_address(tuple t) {
 		;; }
 		(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 
+		;; (ps, total_stake) = sort_participants_into_tuple(participants);
+		;; (opt_count, opt_effective_total) = optimize_effective_stake(ps);
+
 		;; Gas-Hook here: 101 910
 
 		var msg = begin_cell()
@@ -318,6 +321,8 @@ forall X -> tuple tuple_from_one(X x) asm "SINGLE";
 
 	(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
 	(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
+	;;(ps, total_stake) = sort_participants_into_tuple(participants);
+	;; (opt_count, opt_effective_total) = optimize_effective_stake(ps);
 	int count = ps.tuple_len();
 
 	;; ps~dump();

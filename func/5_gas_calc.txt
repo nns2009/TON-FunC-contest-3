@@ -1,0 +1,14 @@
+Default: 51600403 / 5.694104286484306
+get with extra sort: 53849969 / 5.683142798810852
+get with extra opt: 72610040 / 5.598217572324426
+try elect extra sort: 53850149 / 5.68314192868557
+try elect extra op: 72610040 / 5.598217572324426
+
+Sort gas usage = 53849969 - 51600403 = 2 249 566
+Optimize gas usage = 72610040 - 51600403 = 21 009 637
+
+Sanity check:
+sort_gas = 53849969 - 51600403
+optimize_gas = 72610040 - 51600403
+2 * (sort_gas + optimize_gas) = 46518406 - quite close to the total 51600403
+(times "2" because "sort" and "optimize" are used both in try_elect and get_stake_table)
