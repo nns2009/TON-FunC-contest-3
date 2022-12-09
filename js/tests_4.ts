@@ -1,7 +1,7 @@
 import BN from 'bn.js';
 import { stackInt } from 'ton-contract-executor';
 
-import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults } from './shared.js';
+import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, invokeGetMethodWithResultsAndLogsGas, invokeGetMethod1ResultAndLogsGas } from './shared.js';
 
 
 let initialData = cell();
@@ -18,16 +18,19 @@ async function testInverseMod(v: number, mod: number) {
 	const multiplied = (v * num) % mod;
 	const correct = multiplied === 1;
 
-	console.log(`${v} * ${num} = ${multiplied} (mod ${mod}) - ${correct ? 'Correct' : 'Wrong'}`);
+	//console.log(`${v} * ${num} = ${multiplied} (mod ${mod}) - ${correct ? 'Correct' : 'Wrong'}`);
 	if (!correct) {
 		throw 'Test failed';
 	}
 }
 
+let totalAddGas = 0;
 async function testAdd(x1: BN, y1: BN, x2: BN, y2: BN, correctX: BN, correctY: BN) {
-	const added = await invokeGetMethodWithResults<[BN, BN]>(contract, 'add', [
+	const [added, _, gas] = await invokeGetMethodWithResultsAndLogsGas<[BN, BN]>(contract, 'add', [
 		stackInt(x1), stackInt(y1), stackInt(x2), stackInt(y2)
 	]);
+	totalAddGas += gas;
+
 	const [addedX, addedY] = added;
 	console.log('Addition result:', addedX.toString(), addedY.toString());
 
@@ -41,10 +44,12 @@ async function testAdd(x1: BN, y1: BN, x2: BN, y2: BN, correctX: BN, correctY: B
 	console.log('(Correct)');
 }
 
+let totalMulGas = 0;
 async function testMul(x: BN, factor: BN, answer: BN) {
-	const multiplied = await invokeGetMethod1Result<BN>(contract, 'mul', [
+	const [multiplied, _ , gas] = await invokeGetMethod1ResultAndLogsGas<BN>(contract, 'mul', [
 		stackInt(x), stackInt(factor)
 	]);
+	totalMulGas += gas;
 	
 	const correct = multiplied.eq(answer);
 	console.log(`${x.toString()} * ${factor.toString()} = ${multiplied.toString()} - ${correct ? 'Correct' : 'Wrong'}`);
@@ -105,3 +110,5 @@ await testMul(
 	int('900'),
 	int('9708516049406557598358815603894673803203043153162733025951424549800834417285'),
 );
+
+console.log(`Total add gas: ${totalAddGas}, total mul gas: ${totalMulGas}`);

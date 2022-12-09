@@ -8,19 +8,16 @@ const int B = 1;
 
 
 ;; MULDIVMOD (x y z – q r)
-(int, int) mul_div_mod(int a, int b, int mod) asm "MULDIVMOD";
-int mul_mod(int a, int b, int mod) {
+(int, int) mul_div_mod(int a, int b, int mod) inline asm "MULDIVMOD";
+int mul_mod(int a, int b, int mod) inline {
 	(_, int r) = mul_div_mod(a, b, mod);
 	return r;
 }
 
-int zhuk(int a, int b) method_id {
-	return a + b;
-}
 
 ;; Code from:
 ;; https://www.geeksforgeeks.org/multiplicative-inverse-under-modulo-m/
-int inverse_mod(int v, int mod) method_id
+int inverse_mod(int v, int mod) inline method_id
 {
     int m0 = mod;
     int y = 0;
@@ -54,15 +51,19 @@ int inverse_mod(int v, int mod) method_id
     return x;
 }
 
-int divide_mod(int a, int b, int mod) {
+int divide_mod(int a, int b, int mod) inline {
 	return mul_mod(a, inverse_mod(b, mod), mod);
 }
 
-int mult(int a, int b) { return mul_mod(a, b, prime); }
-int sqr(int v) { return mult(v, v); } ;; v ** 2
-int pow3(int v) { return mult(v, sqr(v)); } ;; v ** 3
-int div(int a, int b) { return divide_mod(a, b, prime); }
+int mult(int a, int b) inline { return mul_mod(a, b, prime); }
+int sqr(int v) inline { return mult(v, v); } ;; v ** 2
+int pow3(int v) inline { return mult(v, sqr(v)); } ;; v ** 3
+int div(int a, int b) inline { return divide_mod(a, b, prime); }
 
+
+
+;; Formulas for addition from:
+;; https://www.intechopen.com/chapters/68653
 ;; testable
 (int, int) add(int x1, int y1, int x2, int y2) method_id {
 	int slope = -1;
@@ -95,7 +96,7 @@ int div(int a, int b) { return divide_mod(a, b, prime); }
 	return (x3, y3);
 }
 
-(int, int) double_XZ(int X, int Z) {
+(int, int) double_XZ(int X, int Z) inline {
 	;; (X**2 - Z**2) ** 2 % prime
 	int NX = sqr((sqr(X) - sqr(Z)) % prime);
 	;; 4*X*Z*(X**2 + A*X*Z + Z**2) % prime
@@ -106,13 +107,17 @@ int div(int a, int b) { return divide_mod(a, b, prime); }
 	return (NX, NZ);
 }
 
-(int, int) add_neighbour_XZ(int X1, int Z1, int X2, int Z2, base_x) {
+(int, int) add_neighbour_XZ(int X1, int Z1, int X2, int Z2, base_x) inline {
 	return (
 		sqr((mult(X1, X2) - mult(Z1, Z2)) % prime),
 		mult(base_x, sqr((mult(X1, Z2) - mult(X2, Z1)) % prime))
 	);
 }
 
+
+;; Formulas for multiplication from:
+;; https://www.cl.cam.ac.uk/teaching/2122/Crypto/curve25519.pdf
+;; starting from page 23
 ;; testable
 int mul(int x1, int factor) method_id {
 	var (X0, Z0) = (x1, 1);
@@ -146,6 +151,7 @@ int mul(int x1, int factor) method_id {
 
 	return res_x;
 }
+
 
 () recv_internal () {
 }
