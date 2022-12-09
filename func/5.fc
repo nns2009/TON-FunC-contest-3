@@ -56,20 +56,24 @@ slice i_address(tuple t) {
 	return t.at(2);
 }
 
-(cell) load_data() {
+(cell, int, int) load_data() {
 	slice cs = get_data().begin_parse();
 
 	if (cs.slice_empty?()) {
-		return (new_dict());
+		return (new_dict(), -1, -1);
 	}
 
 	cell participants = cs~load_dict();
-	return (participants);
+	int opt_count = cs~load_uint(32);
+	int opt_effective_total = cs~load_grams();
+	return (participants, opt_count, opt_effective_total);
 }
 
-() save_data(cell participants) impure {
+() save_data(cell participants, int opt_count, int opt_effective_total) impure {
 	set_data(begin_cell()
 		.store_dict(participants)
+		.store_uint(opt_count, 32)
+		.store_grams(opt_effective_total)
 		.end_cell()
 	);
 }
@@ -218,7 +222,7 @@ slice i_address(tuple t) {
 
 	(int op, int query_id) = (in_msg_body~load_uint(32), in_msg_body~load_uint(64));
 
-	(cell participants) = load_data();
+	(cell participants, _, _) = load_data();
 
 	if(op == 0x5ce28eea) { ;; participate
 		(slice cs, int f) = participants.udict_get?(256, sender_hashed);
@@ -239,6 +243,8 @@ slice i_address(tuple t) {
 			256, sender_hashed,
 			begin_cell().store_grams(stake).store_uint(max_factor, 24).store_slice(sender)
 		);
+
+		save_data(participants, 0, 0);
 	}
 
 	if(op == 0x207fa5f5) { ;; try_elect
@@ -294,9 +300,9 @@ slice i_address(tuple t) {
 			)
 			.end_cell();
 		send_raw_message(msg, 64);
-	}
 
-	save_data(participants);
+		save_data(participants, opt_count, opt_effective_total);
+	}
 }
 
 ;; slice hash_to_address(int hash) {
@@ -317,10 +323,12 @@ forall X -> tuple tuple_from_one(X x) asm "SINGLE";
 	;; return (tuple_from_one(45), tuple_from_one(56));
 	;; return (empty_tuple(), empty_tuple());
 
-	(cell participants) = load_data();
+	(cell participants, int opt_count, int opt_effective_total) = load_data();
 
 	(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
-	(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
+	;; (int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
+	;; ^ Load "opt_count" and "opt_effective_total" from storage instead
+
 	;;(ps, total_stake) = sort_participants_into_tuple(participants);
 	;; (opt_count, opt_effective_total) = optimize_effective_stake(ps);
 	int count = ps.tuple_len();

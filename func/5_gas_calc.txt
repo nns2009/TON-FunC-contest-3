@@ -12,3 +12,8 @@ sort_gas = 53849969 - 51600403
 optimize_gas = 72610040 - 51600403
 2 * (sort_gas + optimize_gas) = 46518406 - quite close to the total 51600403
 (times "2" because "sort" and "optimize" are used both in try_elect and get_stake_table)
+
+
+Storing optimal count, so I don't have to recompute optimization in the get method:
+(in other words: 2*sort_gas + optimize_gas)
+30659078 / 5.804971221947841
