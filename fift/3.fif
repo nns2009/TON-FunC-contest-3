@@ -12,28 +12,28 @@ PROGRAM{
     7 GTINT
     IF:<{
       8 LDU
-      SWAP
     }>ELSE<{
       DUP
       SREMPTY
       IFJMP:<{
         0 PUSHINT
+        SWAP
       }>
       PLDREF
       CTOS
       8 LDU
-      SWAP
     }>
   }>
   expression PROCINLINE:<{
     group INLINECALLDICT
     WHILE:<{
-      DUP
-      43 EQINT
       OVER
+      43 EQINT
+      s2 PUSH
       45 EQINT
       OR
     }>DO<{
+      SWAP
       43 EQINT
       IF:<{
         next_char INLINECALLDICT
@@ -50,24 +50,25 @@ PROGRAM{
     }>
   }>
   item PROCINLINE:<{
-    DUP
+    OVER
     40 EQINT
     IF:<{
-      DROP
+      NIP
       next_char INLINECALLDICT
       expression INLINECALLDICT
-      DROP
+      NIP
       next_char INLINECALLDICT
     }>ELSE<{
       0 PUSHINT
       WHILE:<{
-        OVER
-        47 GTINT
         s2 PUSH
+        47 GTINT
+        s3 PUSH
         58 LESSINT
         AND
       }>DO<{
         10 MULCONST
+        s1 s2 XCHG
         ADD
         -48 ADDCONST
         SWAP
@@ -80,12 +81,13 @@ PROGRAM{
   group PROCINLINE:<{
     item INLINECALLDICT
     WHILE:<{
-      DUP
-      42 EQINT
       OVER
+      42 EQINT
+      s2 PUSH
       47 EQINT
       OR
     }>DO<{
+      SWAP
       42 EQINT
       IF:<{
         next_char INLINECALLDICT

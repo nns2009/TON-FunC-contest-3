@@ -10,19 +10,17 @@ int tuple_len(tuple t) asm "TLEN";
 (tuple, int) ~tuple_pop(tuple t) asm "TPOP";
 
 
-(int, slice) next_char(slice cs) impure inline {
+(slice, int) next_char(slice cs) impure inline {
 	if (cs.slice_bits() >= 8) {
-		(cs, int c) = load_uint(cs, 8);
-		return (c, cs);
+		return load_uint(cs, 8);
 	}
 
 	if (cs.slice_refs_empty?()) {
-		return (0, cs); ;; expression end
+		return (cs, 0); ;; expression end
 	}
 	cs = cs.preload_ref().begin_parse();
 
-	(cs, int c) = load_uint(cs, 8);
-	return (c, cs);
+	return load_uint(cs, 8);
 }
 
 ;; () print_char() impure {
@@ -31,16 +29,16 @@ int tuple_len(tuple t) asm "TLEN";
 ;; 	temp~impure_touch();
 ;; }
 
-(int, int, slice) expression(int char, slice cs) impure inline;
+(int, slice, int) expression(slice cs, int char) impure inline;
 
 ;; int item() { return 5; }
-(int, int, slice) item(int char, slice cs) impure inline {
+(int, slice, int) item(slice cs, int char) impure inline {
 	;; (<expression>)
 	if (char == 40) { ;; '('
-		(char, cs) = cs.next_char(); ;; char = cs~next_char();
-		(int v, char, cs) = expression(char, cs); ;; cs~expression(char);
-		(char, cs) = cs.next_char(); ;; char = cs~next_char(); ;; skip ')';
-		return (v, char, cs); ;; (cs, (v, char));
+		char = cs~next_char();
+		(int v, cs, char) = expression(cs, char); ;; cs~expression(char);
+		char = cs~next_char(); ;; skip ')';
+		return (v, cs, char); ;; (cs, (v, char));
 	}
 
 	;; constant
@@ -52,51 +50,51 @@ int tuple_len(tuple t) asm "TLEN";
 			;; v = v * 10 + char - 48;
 			;; int d = char - 48;
 			;; v = d + v * 10; ;; + d;
-			(char, cs) = cs.next_char();
+			char = cs~next_char();
 		}
-		return (v, char, cs);
+		return (v, cs, char);
 	}
 }
 
 ;; int group() { return 111; }
-(int, int, slice) group(int char, slice cs) impure inline {
-	(int v, char, cs) = item(char, cs); ;; cs~item(char);
+(int, slice, int) group(slice cs, int char) impure inline {
+	(int v, cs, char) = item(cs, char); ;; cs~item(char);
 
 	while ((char == 42) | (char == 47)) {
 		if (char == 42) { ;; '*'
-			(char, cs) = cs.next_char();
-			(int nv, char, cs) = item(char, cs);
+			char = cs~next_char();
+			(int nv, cs, char) = item(cs, char);
 			v *= nv;
 			;; v *= item();
 		} else { ;; '/'
-			(char, cs) = cs.next_char();
-			(int nv, char, cs) = item(char, cs);
+			char = cs~next_char();
+			(int nv, cs, char) = item(cs, char);
 			v /= nv;
 			;; v /= item();
 		}
 	}
 
-	return (v, char, cs);
+	return (v, cs, char);
 }
 
-(int, int, slice) expression(int char, slice cs) impure inline {
-	(int v, char, cs) = group(char, cs); ;; cs~group(char);
+(int, slice, int) expression(slice cs, int char) impure inline {
+	(int v, cs, char) = group(cs, char); ;; cs~group(char);
 
 	while ((char == 43) | (char == 45)) {
 		if (char == 43) { ;; '+'
-			(char, cs) = cs.next_char();
-			(int nv, char, cs) = group(char, cs);
+			char = cs~next_char();
+			(int nv, cs, char) = group(cs, char);
 			v += nv;
 			;; v += group();
 		} else { ;; '-'
-			(char, cs) = cs.next_char();
-			(int nv, char, cs) = group(char, cs);
+			char = cs~next_char();
+			(int nv, cs, char) = group(cs, char);
 			v -= nv;			
 			;; v -= group();
 		}
 	}
 
-	return (v, char, cs);
+	return (v, cs, char);
 }
 
 builder print_int(builder b, int v) inline {
@@ -136,8 +134,8 @@ builder print_int(builder b, int v) inline {
 
 	slice cs = in_msg_body.skip_bits(32); ;; op=0
 
-	(int first_char, cs) = cs.next_char();
-	(int res, _, _) = expression(first_char, cs);
+	int first_char = cs~next_char();
+	(int res, _, _) = expression(cs, first_char);
 
 	var msg = begin_cell()
 		.store_uint(0x18, 6)
