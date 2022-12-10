@@ -5,7 +5,7 @@ import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithR
 
 
 let initialData = cell();
-let contract = await contractLoader('./../func/4.fc')(initialData);
+let contract = await contractLoader(['./../func/4.fc'], './../fift/4.fif')(initialData);
 
 async function testInverseMod(v: number, mod: number) {
 	const value = await invokeGetMethod1Result<BN>(contract, 'inverse_mod', [

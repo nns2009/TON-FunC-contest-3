@@ -1,0 +1,218 @@
+// automatically generated from `4.fc` 
+PROGRAM{
+  DECLPROC mul_mod
+  116850 DECLMETHOD inverse_mod
+  DECLPROC divide_mod
+  DECLPROC mult
+  DECLPROC sqr
+  DECLPROC pow3
+  DECLPROC div
+  83863 DECLMETHOD add
+  DECLPROC double_XZ
+  DECLPROC add_neighbour_XZ
+  99260 DECLMETHOD mul
+  DECLPROC recv_internal
+  mul_mod PROCINLINE:<{
+    MULDIVMOD
+    NIP
+  }>
+  inverse_mod PROCINLINE:<{
+    DUP
+    0 PUSHINT
+    1 PUSHINT
+    s3 PUSH
+    1 EQINT
+    IF:<{
+      5 BLKDROP
+      0 PUSHINT
+    }>ELSE<{
+      WHILE:<{
+        s4 PUSH
+        1 GTINT
+      }>DO<{
+        s4 s3 PUSH2
+        DIV
+        s5 s4 XCPU
+        MOD
+        s5 s2 XCPU
+        MUL
+        SUB
+        s3 s4 XCHG
+        SWAP
+      }>
+      NIP
+      2 2 BLKDROP2
+      DUP
+      0 LESSINT
+      IF:<{
+        SWAP
+        ADD
+      }>ELSE<{
+        NIP
+      }>
+    }>
+  }>
+  divide_mod PROCINLINE:<{
+    TUCK
+    inverse_mod INLINECALLDICT
+    SWAP
+    mul_mod INLINECALLDICT
+  }>
+  mult PROCINLINE:<{
+    57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+    mul_mod INLINECALLDICT
+  }>
+  sqr PROCINLINE:<{
+    DUP
+    mult INLINECALLDICT
+  }>
+  pow3 PROCINLINE:<{
+    DUP
+    sqr INLINECALLDICT
+    mult INLINECALLDICT
+  }>
+  div PROCINLINE:<{
+    57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+    divide_mod INLINECALLDICT
+  }>
+  add PROC:<{
+    s3 s1 PUSH2
+    EQUAL
+    IF:<{
+      DROP
+      s2 PUSH
+      sqr INLINECALLDICT
+      3 PUSHINT
+      mult INLINECALLDICT
+      973324 PUSHINT
+      s4 PUSH
+      mult INLINECALLDICT
+      ADD
+      INC
+      57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+      MOD
+      2 PUSHINT
+      s3 PUSH
+      mult INLINECALLDICT
+      div INLINECALLDICT
+    }>ELSE<{
+      s2 PUSH
+      SUB
+      57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+      MOD
+      s1 s3 PUSH2
+      SUB
+      57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+      MOD
+      div INLINECALLDICT
+    }>
+    DUP
+    sqr INLINECALLDICT
+    486662 PUSHINT
+    SUB
+    s4 PUSH
+    SUB
+    57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+    MOD
+    ROT
+    SUB
+    57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+    MOD
+    s3 s3 XCPU
+    SUB
+    mult INLINECALLDICT
+    SWAP
+    SUB
+    57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+    MOD
+  }>
+  double_XZ PROCINLINE:<{
+    2DUP
+    mult INLINECALLDICT
+    s0 s2 XCHG
+    sqr INLINECALLDICT
+    SWAP
+    sqr INLINECALLDICT
+    2DUP
+    SUB
+    sqr INLINECALLDICT
+    -ROT
+    ADD
+    57896044618658097711785492504343953926634992332820282019728792003956564819949 PUSHINT
+    MOD
+    s2 PUSH
+    486662 PUSHINT
+    mult INLINECALLDICT
+    ADD
+    s1 s2 XCHG
+    mult INLINECALLDICT
+    4 PUSHINT
+    mult INLINECALLDICT
+  }>
+  add_neighbour_XZ PROCINLINE:<{
+    s4 s2 PUSH2
+    mult INLINECALLDICT
+    s4 s2 PUSH2
+    mult INLINECALLDICT
+    SUB
+    sqr INLINECALLDICT
+    s5 s2 XCHG2
+    mult INLINECALLDICT
+    s2 s3 XCHG2
+    mult INLINECALLDICT
+    s1 s2 XCHG
+    SUB
+    sqr INLINECALLDICT
+    s1 s2 XCHG
+    mult INLINECALLDICT
+  }>
+  mul PROC:<{
+    1 PUSHINT
+    s2 s2 s0 PUSH3
+    double_XZ INLINECALLDICT
+    -1 PUSHINT
+    8 PUSHPOW2
+    WHILE:<{
+      DUP
+      0 GTINT
+    }>DO<{
+      DEC
+      DUP
+      POW2
+      s7 s(-1) PUXC
+      AND
+      s2 PUSH
+      IF:<{
+        IF:<{
+          0 PUSHINT
+          s2 POP
+        }>
+      }>ELSE<{
+        IF:<{
+          s4 s5 s3 XC2PU
+          s3 s8 PUSH2
+          add_neighbour_XZ INLINECALLDICT
+          2SWAP
+          double_XZ INLINECALLDICT
+        }>ELSE<{
+          s4 PUSH
+          s6 s2 s3 PUXC2
+          s5 s0 s9 XC2PU
+          add_neighbour_XZ INLINECALLDICT
+          s4 s5 XCHG2
+          double_XZ INLINECALLDICT
+          s0 s3 s5 XCHG3
+          s1 s4 XCHG
+        }>
+        s0 s3 s5 XCHG3
+        s1 s4 XCHG
+      }>
+    }>
+    4 BLKDROP
+    s3 POP
+    NIP
+    div INLINECALLDICT
+  }>
+  recv_internal PROC:<{
+  }>
+}END>c

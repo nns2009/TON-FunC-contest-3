@@ -4,6 +4,7 @@
 
 const int prime = 57896044618658097711785492504343953926634992332820282019728792003956564819949; ;; (1 << 255) - 19;
 const int A = 486662;
+const int doubleA = 973324; ;; 2 * A;
 ;; const int B = 1;
 
 
@@ -69,8 +70,8 @@ int div(int a, int b) inline { return divide_mod(a, b, prime); }
 	int slope = -1;
 	
 	if (x1 == x2) {
-		int numerator = mult(3, sqr(x1));
-		numerator = (numerator + mult(2, mult(A, x1)) + 1) % prime;
+		int numerator = mult(sqr(x1), 3);
+		numerator = (numerator + mult(doubleA, x1) + 1) % prime;
 
 		slope = div(
 			numerator,
@@ -86,35 +87,38 @@ int div(int a, int b) inline { return divide_mod(a, b, prime); }
 
 	;; (slope ** 2 - A - x1 - x2) % prime
 	int x3 = sqr(slope);
-	x3 = (x3 - A) % prime;
-	x3 = (x3 - x1) % prime;
+	x3 = (x3 - A - x1) % prime;
+	;; x3 = (x3 - x1) % prime;
 	x3 = (x3 - x2) % prime;
 	;; y3 = (slope * (x1 - x3) - y1) % prime
-	int y3 = mult(slope, (x1 - x3));
+	int y3 = mult(slope, x1 - x3);
 	y3 = (y3 - y1) % prime;
 	
 	return (x3, y3);
 }
 
 (int, int) double_XZ(int X, int Z) inline {
+	int XZ = mult(X, Z);
 	int Xsq = sqr(X);
 	int Zsq = sqr(Z);
-	int XZ = mult(X, Z);
 
 	;; (X**2 - Z**2) ** 2 % prime
-	int NX = sqr((Xsq - Zsq) % prime);
+	int NX = sqr(Xsq - Zsq);
+	int XsqYsq = (Xsq + Zsq) % prime;
 	;; 4*X*Z*(X**2 + A*X*Z + Z**2) % prime
-	int NZ = mult(4, mult(XZ,
-		( (Xsq + mult(A, XZ)) % prime + Zsq) % prime
-	));
+	int NZ = mult(
+		;; mult(XZ, mult(XZ, A) + XsqYsq),
+		mult(XZ, XsqYsq + mult(XZ, A)),
+		4
+	);
 	
 	return (NX, NZ);
 }
 
 (int, int) add_neighbour_XZ(int X1, int Z1, int X2, int Z2, base_x) inline {
 	return (
-		sqr((mult(X1, X2) - mult(Z1, Z2)) % prime),
-		mult(base_x, sqr((mult(X1, Z2) - mult(X2, Z1)) % prime))
+		sqr(mult(X1, X2) - mult(Z1, Z2)),
+		mult(base_x, sqr(mult(X1, Z2) - mult(X2, Z1)))
 	);
 }
 
