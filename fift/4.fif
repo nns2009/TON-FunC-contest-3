@@ -170,14 +170,9 @@ PROGRAM{
     1 PUSHINT
     s2 s2 s0 PUSH3
     double_XZ INLINECALLDICT
-    8 PUSHPOW2
-    UNTIL:<{
-      DEC
-      DUP
-      POW2
-      s6 s(-1) PUXC
-      AND
-    }>
+    s4 PUSH
+    UBITSIZE
+    DEC
     WHILE:<{
       DUP
       0 GTINT

@@ -123,6 +123,8 @@ int div(int a, int b) inline { return divide_mod(a, b, prime); }
 }
 
 
+int ubitsize(int v) asm "UBITSIZE";
+
 ;; Formulas for multiplication from:
 ;; https://www.cl.cam.ac.uk/teaching/2122/Crypto/curve25519.pdf
 ;; starting from page 23
@@ -132,12 +134,7 @@ int mul(int x1, int factor) method_id {
 	var (X1, Z1) = double_XZ(X0, Z0);
 	int skip = -1;
 
-	int i = 256;
-	do {
-		i -= 1;
-		int bit = factor & (1 << i);
-	} until (bit);
-
+	int i = ubitsize(factor) - 1;
 	while (i > 0) {
 		i -= 1;
 		int bit = factor & (1 << i);
