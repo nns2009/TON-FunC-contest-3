@@ -38,6 +38,8 @@
 	set_data(begin_cell()
 		.store_uint(count, 4)
 		.store_dict(dict)
+		.store_uint(count, 4)
+		.store_dict(dict)
 		.end_cell()
 	);
 }

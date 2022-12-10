@@ -5,6 +5,6 @@ import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithR
 
 
 let initialData = cell();
-let contract = await contractLoader('./../func/stdlib.fc', './../func/2.fc')(initialData);
+let contract = await contractLoader(['./../func/stdlib.fc', './../func/2.fc'])(initialData);
 
 console.log('It compiles');
