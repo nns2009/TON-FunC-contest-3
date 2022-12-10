@@ -3,7 +3,11 @@ PROGRAM{
   DECLPROC next_char
   DECLPROC expression
   DECLPROC item
+  42 DECLMETHOD opMultiply
+  47 DECLMETHOD opDivide
   DECLPROC group
+  43 DECLMETHOD opAdd
+  45 DECLMETHOD opSubtract
   DECLPROC print_int
   DECLPROC recv_internal
   next_char PROCINLINE:<{
@@ -36,19 +40,7 @@ PROGRAM{
       45 EQINT
       OR
     }>DO<{
-      43 EQINT
-      IF:<{
-        next_char INLINECALLDICT
-        group INLINECALLDICT
-        2SWAP
-        ADD
-      }>ELSE<{
-        next_char INLINECALLDICT
-        group INLINECALLDICT
-        2SWAP
-        SUB
-      }>
-      -ROT
+      c3 PUSH EXECUTE
     }>
   }>
   item PROCINLINE:<{
@@ -82,6 +74,20 @@ PROGRAM{
       -ROT
     }>
   }>
+  opMultiply PROC:<{
+    next_char INLINECALLDICT
+    item INLINECALLDICT
+    2SWAP
+    MUL
+    -ROT
+  }>
+  opDivide PROC:<{
+    next_char INLINECALLDICT
+    item INLINECALLDICT
+    2SWAP
+    DIV
+    -ROT
+  }>
   group PROCINLINE:<{
     item INLINECALLDICT
     WHILE:<{
@@ -91,20 +97,22 @@ PROGRAM{
       47 EQINT
       OR
     }>DO<{
-      42 EQINT
-      IF:<{
-        next_char INLINECALLDICT
-        item INLINECALLDICT
-        2SWAP
-        MUL
-      }>ELSE<{
-        next_char INLINECALLDICT
-        item INLINECALLDICT
-        2SWAP
-        DIV
-      }>
-      -ROT
+      c3 PUSH EXECUTE
     }>
+  }>
+  opAdd PROC:<{
+    next_char INLINECALLDICT
+    group INLINECALLDICT
+    2SWAP
+    ADD
+    -ROT
+  }>
+  opSubtract PROC:<{
+    next_char INLINECALLDICT
+    group INLINECALLDICT
+    2SWAP
+    SUB
+    -ROT
   }>
   print_int PROCINLINE:<{
     DUP

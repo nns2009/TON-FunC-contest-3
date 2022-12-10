@@ -10,10 +10,6 @@ int tuple_len(tuple t) asm "TLEN";
 (tuple, int) ~tuple_pop(tuple t) asm "TPOP";
 
 
-(int, slice, int) call_2_test(int v, slice cs) asm "200 PUSHINT c3 PUSH EXECUTE";
-(int, slice, int) call_2(int v, slice cs, int selector) asm "c3 PUSH EXECUTE";
-
-
 (slice, int) next_char(slice cs) impure inline {
 	if (cs.slice_bits() < 8) {
 		if (cs.slice_refs_empty?()) {
@@ -76,42 +72,28 @@ int tuple_len(tuple t) asm "TLEN";
 
 	return (v, cs, char);
 }
-(int, slice, int) opAdd(int v, slice cs) impure method_id(43) {
-	int char = cs~next_char();
-	(int nv, cs, char) = group(cs, char);
-	return (v + nv, cs, char);
-}
-(int, slice, int) opSubtract(int v, slice cs) impure method_id(45) {
-	int char = cs~next_char();
-	(int nv, cs, char) = group(cs, char);
-	return (v - nv, cs, char);
-}
 
-(int, slice, int) expression(slice cs, int char) impure {
+(int, slice, int) expression(slice cs, int char) impure inline {
 	(int v, cs, char) = group(cs, char); ;; cs~group(char);
-	;; (int v, cs, char) = group(cs, char); ;; cs~group(char);
 
 	while ((char == 43) | (char == 45)) {
-		(v, cs, char) = call_2(v, cs, char);
-		;; call_2(cs, char)
-
-		;; if (char == 43) { ;; '+'
-		;; 	char = cs~next_char();
-		;; 	(int nv, cs, char) = call_2(cs, char);
-		;; 	v += nv;
-		;; 	;; v += group();
-		;; } else { ;; '-'
-		;; 	char = cs~next_char();
-		;; 	(int nv, cs, char) = call_2(cs, char);
-		;; 	v -= nv;			
-		;; 	;; v -= group();
-		;; }
+		if (char == 43) { ;; '+'
+			char = cs~next_char();
+			(int nv, cs, char) = group(cs, char);
+			v += nv;
+			;; v += group();
+		} else { ;; '-'
+			char = cs~next_char();
+			(int nv, cs, char) = group(cs, char);
+			v -= nv;			
+			;; v -= group();
+		}
 	}
 
 	return (v, cs, char);
 }
 
-builder print_int(builder b, int v) {
+builder print_int(builder b, int v) inline {
 	int is_zero = v == 0;
 
 	if (v < 0) {
