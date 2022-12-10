@@ -26,19 +26,18 @@
 	(14, 14)         | (14,14); (5,3)
 -}
 
-(int, cell, cell) load_data() inline {
+(int, cell) load_data() inline {
 	slice cs = get_data().begin_parse();
 	if (cs.slice_empty?()) {
-		return (0, new_dict(), new_dict());
+		return (0, new_dict());
 	}
-	return (cs~load_uint(4), cs~load_dict(), cs.preload_dict());
+	return (cs~load_uint(4), cs.preload_dict());
 }
 
-() save_data(int count, cell score_dict, cell value_dict) impure inline {
+() save_data(int count, cell dict) impure inline {
 	set_data(begin_cell()
 		.store_uint(count, 4)
-		.store_dict(score_dict)
-		.store_dict(value_dict)
+		.store_dict(dict)
 		.end_cell()
 	);
 }
@@ -54,38 +53,46 @@
 	send_raw_message(msg, 0);
 }
 
-const value_bitlen = 128;
-
 ;; testable
 () recv_internal (slice in_msg_body) {
 	(int score, int value, cell msg) = (in_msg_body~load_uint(32), in_msg_body~load_coins(), in_msg_body~load_ref());
 	
-	;; score_dict: score (uint32) -> VarUInteger16 + ^Cell
-	(int count, cell score_dict, cell value_dict) = load_data();
-	score_dict~udict_set_builder(32, score, begin_cell().store_coins(value).store_ref(msg));
-	value_dict~udict_set_builder(value_bitlen, value, begin_cell().store_uint(score, 32));
+	;; dict: score (uint32) -> VarUInteger16 + ^Cell
+	(int count, cell dict) = load_data();
+	dict~udict_set_builder(32, score, begin_cell().store_coins(value).store_ref(msg));
 
 	if (count >= 11) {
-		(int lv_value, slice lv_value_cs, _) = value_dict~udict::delete_get_min(value_bitlen);
-		int lv_score = lv_value_cs.preload_uint(32);
+		;; lv = Lowest Value
+		int lv_value = 115792089237316195423570985008687907853269984665640564039457584007913129639935; ;; 2**256 - 1
+		int lv_score = -1;
+		
+		int k = -1;
+		do {
+			(k, slice cs, int f) = dict.udict_get_next?(32, k);
+			if (f) {
+				int cur_value = cs~load_coins();
+				if (cur_value < lv_value) {
+					lv_value = cur_value;
+					lv_score = k;
+				}
+			}
+		} until (~ f);
 
 		;; hs = Highest Score
-		(int hs_score, slice hs_cs, _) = score_dict~udict::delete_get_max(32);
+		(int hs_score, slice hs_cs, _) = dict~udict::delete_get_max(32);
 		int hs_value = hs_cs~load_coins();
 		cell hs_msg = hs_cs.preload_ref();
-
 		send_message(hs_value, hs_msg);
-		if (hs_score != lv_score) {
-			(slice lv_score_cs, _) = score_dict~udict_delete_get?(32, lv_score);
-			cell lv_msg = lv_score_cs.preload_ref();
-			send_message(lv_value, lv_msg);
 
-			value_dict~udict_delete?(value_bitlen, hs_value);
+		if (hs_score != lv_score) {
+			(slice lv_cs, _) = dict~udict_delete_get?(32, lv_score);
+			cell lv_msg = lv_cs.preload_ref();
+			send_message(lv_value, lv_msg);
 			count -= 1;
 		}
 	} else {
 		count += 1;
 	}
 
-	save_data(count, score_dict, value_dict);
+	save_data(count, dict);
 }
