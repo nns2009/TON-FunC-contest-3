@@ -11,13 +11,14 @@ int tuple_len(tuple t) asm "TLEN";
 
 
 (slice, int) next_char(slice cs) impure inline {
-	if (cs.slice_bits() < 8) {
-		if (cs.slice_refs_empty?()) {
-			return (cs, 0); ;; expression end
-		}
-
-		cs = cs.preload_ref().begin_parse();
+	if (cs.slice_bits() >= 8) {
+		return load_uint(cs, 8);
 	}
+
+	if (cs.slice_refs_empty?()) {
+		return (cs, 0); ;; expression end
+	}
+	cs = cs.preload_ref().begin_parse();
 
 	return load_uint(cs, 8);
 }
@@ -28,7 +29,7 @@ int tuple_len(tuple t) asm "TLEN";
 ;; 	temp~impure_touch();
 ;; }
 
-(int, slice, int) expression(slice cs, int char) impure;
+(int, slice, int) expression(slice cs, int char) impure inline;
 
 ;; int item() { return 5; }
 (int, slice, int) item(slice cs, int char) impure inline {

@@ -7,25 +7,23 @@ PROGRAM{
   DECLPROC print_int
   DECLPROC recv_internal
   next_char PROCINLINE:<{
-    CONT:<{
-      SAMEALTSAVE
+    DUP
+    SBITS
+    7 GTINT
+    IF:<{
+      8 LDU
+      SWAP
+    }>ELSE<{
       DUP
-      SBITS
-      8 LESSINT
-      IF:<{
-        DUP
-        SREMPTY
-        IFJMP:<{
-          0 PUSHINT
-          RETALT
-        }>
-        PLDREF
-        CTOS
+      SREMPTY
+      IFJMP:<{
+        0 PUSHINT
       }>
+      PLDREF
+      CTOS
       8 LDU
       SWAP
     }>
-    EXECUTE
   }>
   expression PROCINLINE:<{
     group INLINECALLDICT
