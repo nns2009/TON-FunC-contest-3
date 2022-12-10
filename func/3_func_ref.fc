@@ -10,6 +10,10 @@ int tuple_len(tuple t) asm "TLEN";
 (tuple, int) ~tuple_pop(tuple t) asm "TPOP";
 
 
+(int, slice, int) call_2_test(int v, slice cs) asm "200 PUSHINT c3 PUSH EXECUTE";
+(int, slice, int) call_2(int v, slice cs, int selector) asm "c3 PUSH EXECUTE";
+
+
 (slice, int) next_char(slice cs) impure inline {
 	if (cs.slice_bits() < 8) {
 		if (cs.slice_refs_empty?()) {
@@ -28,7 +32,7 @@ int tuple_len(tuple t) asm "TLEN";
 ;; 	temp~impure_touch();
 ;; }
 
-(int, slice, int) expression(slice cs, int char) impure;
+(int, slice, int) expression(slice cs, int char) impure inline;
 
 ;; int item() { return 5; }
 (int, slice, int) item(slice cs, int char) impure inline {
@@ -52,44 +56,42 @@ int tuple_len(tuple t) asm "TLEN";
 	}
 }
 
+(int, slice, int) opMultiply(int v, slice cs) impure method_id(42) {
+	int char = cs~next_char();
+	(int nv, cs, char) = item(cs, char);
+	return (v * nv, cs, char);
+}
+(int, slice, int) opDivide(int v, slice cs) impure method_id(47) {
+	int char = cs~next_char();
+	(int nv, cs, char) = item(cs, char);
+	return (v / nv, cs, char);
+}
+
 ;; int group() { return 111; }
 (int, slice, int) group(slice cs, int char) impure inline {
 	(int v, cs, char) = item(cs, char); ;; cs~item(char);
-
 	while ((char == 42) | (char == 47)) {
-		if (char == 42) { ;; '*'
-			char = cs~next_char();
-			(int nv, cs, char) = item(cs, char);
-			v *= nv;
-			;; v *= item();
-		} else { ;; '/'
-			char = cs~next_char();
-			(int nv, cs, char) = item(cs, char);
-			v /= nv;
-			;; v /= item();
-		}
+		(v, cs, char) = call_2(v, cs, char);
 	}
-
 	return (v, cs, char);
+}
+
+(int, slice, int) opAdd(int v, slice cs) impure method_id(43) {
+	int char = cs~next_char();
+	(int nv, cs, char) = group(cs, char);
+	return (v + nv, cs, char);
+}
+(int, slice, int) opSubtract(int v, slice cs) impure method_id(45) {
+	int char = cs~next_char();
+	(int nv, cs, char) = group(cs, char);
+	return (v - nv, cs, char);
 }
 
 (int, slice, int) expression(slice cs, int char) impure inline {
 	(int v, cs, char) = group(cs, char); ;; cs~group(char);
-
 	while ((char == 43) | (char == 45)) {
-		if (char == 43) { ;; '+'
-			char = cs~next_char();
-			(int nv, cs, char) = group(cs, char);
-			v += nv;
-			;; v += group();
-		} else { ;; '-'
-			char = cs~next_char();
-			(int nv, cs, char) = group(cs, char);
-			v -= nv;			
-			;; v -= group();
-		}
+		(v, cs, char) = call_2(v, cs, char);
 	}
-
 	return (v, cs, char);
 }
 

@@ -3,11 +3,7 @@ PROGRAM{
   DECLPROC next_char
   DECLPROC expression
   DECLPROC item
-  42 DECLMETHOD opMultiply
-  47 DECLMETHOD opDivide
   DECLPROC group
-  43 DECLMETHOD opAdd
-  45 DECLMETHOD opSubtract
   DECLPROC print_int
   DECLPROC recv_internal
   next_char PROCINLINE:<{
@@ -40,7 +36,19 @@ PROGRAM{
       45 EQINT
       OR
     }>DO<{
-      c3 PUSH EXECUTE
+      43 EQINT
+      IF:<{
+        next_char INLINECALLDICT
+        group INLINECALLDICT
+        2SWAP
+        ADD
+      }>ELSE<{
+        next_char INLINECALLDICT
+        group INLINECALLDICT
+        2SWAP
+        SUB
+      }>
+      -ROT
     }>
   }>
   item PROCINLINE:<{
@@ -61,32 +69,15 @@ PROGRAM{
         58 LESSINT
         AND
       }>DO<{
-        SWAP
-        -48 ADDCONST
-        SWAP
         10 MULCONST
-        SWAP
         ADD
+        -48 ADDCONST
         SWAP
         next_char INLINECALLDICT
         ROT
       }>
       -ROT
     }>
-  }>
-  opMultiply PROC:<{
-    next_char INLINECALLDICT
-    item INLINECALLDICT
-    2SWAP
-    MUL
-    -ROT
-  }>
-  opDivide PROC:<{
-    next_char INLINECALLDICT
-    item INLINECALLDICT
-    2SWAP
-    DIV
-    -ROT
   }>
   group PROCINLINE:<{
     item INLINECALLDICT
@@ -97,22 +88,20 @@ PROGRAM{
       47 EQINT
       OR
     }>DO<{
-      c3 PUSH EXECUTE
+      42 EQINT
+      IF:<{
+        next_char INLINECALLDICT
+        item INLINECALLDICT
+        2SWAP
+        MUL
+      }>ELSE<{
+        next_char INLINECALLDICT
+        item INLINECALLDICT
+        2SWAP
+        DIV
+      }>
+      -ROT
     }>
-  }>
-  opAdd PROC:<{
-    next_char INLINECALLDICT
-    group INLINECALLDICT
-    2SWAP
-    ADD
-    -ROT
-  }>
-  opSubtract PROC:<{
-    next_char INLINECALLDICT
-    group INLINECALLDICT
-    2SWAP
-    SUB
-    -ROT
   }>
   print_int PROCINLINE:<{
     DUP
@@ -138,13 +127,10 @@ PROGRAM{
         OVER
         0 GTINT
       }>DO<{
-        OVER
+        SWAP
         10 PUSHINT
-        MOD
-        s0 s2 XCHG
-        10 PUSHINT
-        DIV
-        s0 s2 XCHG
+        DIVMOD
+        s1 s2 XCHG
         TPUSH
       }>
       NIP
