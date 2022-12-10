@@ -62,9 +62,8 @@ const value_bitlen = 128;
 	
 	;; score_dict: score (uint32) -> VarUInteger16 + ^Cell
 	(int count, cell score_dict, cell value_dict) = load_data();
-	builder b = begin_cell().store_uint(score, 32).store_coins(value).store_ref(msg);
-	score_dict~udict_set_builder(32, score, b);
-	value_dict~udict_set_builder(value_bitlen, value, b);
+	score_dict~udict_set_builder(32, score, begin_cell().store_coins(value).store_ref(msg));
+	value_dict~udict_set_builder(value_bitlen, value, begin_cell().store_uint(score, 32));
 
 	if (count >= 11) {
 		(int lv_value, slice lv_value_cs, _) = value_dict~udict::delete_get_min(value_bitlen);
@@ -72,16 +71,15 @@ const value_bitlen = 128;
 
 		;; hs = Highest Score
 		(int hs_score, slice hs_cs, _) = score_dict~udict::delete_get_max(32);
-		hs_cs~skip_bits(32); ;; score
 		int hs_value = hs_cs~load_coins();
 		cell hs_msg = hs_cs.preload_ref();
 
 		send_message(hs_value, hs_msg);
 		if (hs_score != lv_score) {
-			cell lv_msg = lv_value_cs.preload_ref();
+			(slice lv_score_cs, _) = score_dict~udict_delete_get?(32, lv_score);
+			cell lv_msg = lv_score_cs.preload_ref();
 			send_message(lv_value, lv_msg);
 
-			score_dict~udict_delete?(32, lv_score);
 			value_dict~udict_delete?(value_bitlen, hs_value);
 			count -= 1;
 		}
