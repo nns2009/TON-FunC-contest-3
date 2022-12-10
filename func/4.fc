@@ -133,25 +133,21 @@ int mul(int x1, int factor) method_id {
 	int skip = -1;
 
 	int i = 256;
+	do {
+		i -= 1;
+		int bit = factor & (1 << i);
+	} until (bit);
+
 	while (i > 0) {
 		i -= 1;
 		int bit = factor & (1 << i);
-		if (skip) {
-			if (bit) {
-				skip = 0;
-			}
-		} else {
-			;; var (lowX, lowZ) = double_XZ(X0, Z0);
-			;; var (midX, midZ) = add_neighbour_XZ(X0, Z0, X1, Z1, x1);
-			;; var (highX, highZ) = double_XZ(X1, Z1);
 
-			if (bit) {
-				(X0, Z0) = add_neighbour_XZ(X0, Z0, X1, Z1, x1); ;; var (midX, midZ) = 
-				(X1, Z1) = double_XZ(X1, Z1); ;; var (highX, highZ) = 
-			} else {
-				(X1, Z1) = add_neighbour_XZ(X0, Z0, X1, Z1, x1); ;; var (midX, midZ) = 
-				(X0, Z0) = double_XZ(X0, Z0); ;; var (lowX, lowZ) = 
-			}
+		if (bit) {
+			(X0, Z0) = add_neighbour_XZ(X0, Z0, X1, Z1, x1); ;; var (midX, midZ) = 
+			(X1, Z1) = double_XZ(X1, Z1); ;; var (highX, highZ) = 
+		} else {
+			(X1, Z1) = add_neighbour_XZ(X0, Z0, X1, Z1, x1); ;; var (midX, midZ) = 
+			(X0, Z0) = double_XZ(X0, Z0); ;; var (lowX, lowZ) = 
 		}
 	}
 

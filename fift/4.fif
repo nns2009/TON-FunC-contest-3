@@ -170,8 +170,14 @@ PROGRAM{
     1 PUSHINT
     s2 s2 s0 PUSH3
     double_XZ INLINECALLDICT
-    -1 PUSHINT
     8 PUSHPOW2
+    UNTIL:<{
+      DEC
+      DUP
+      POW2
+      s6 s(-1) PUXC
+      AND
+    }>
     WHILE:<{
       DUP
       0 GTINT
@@ -179,36 +185,27 @@ PROGRAM{
       DEC
       DUP
       POW2
-      s7 s(-1) PUXC
+      s6 s(-1) PUXC
       AND
-      s2 PUSH
       IF:<{
-        IF:<{
-          0 PUSHINT
-          s2 POP
-        }>
+        s3 s4 s2 XC2PU
+        s4 s7 PUSH2
+        add_neighbour_XZ INLINECALLDICT
+        s2 s3 XCHG2
+        double_XZ INLINECALLDICT
       }>ELSE<{
-        IF:<{
-          s4 s5 s3 XC2PU
-          s3 s8 PUSH2
-          add_neighbour_XZ INLINECALLDICT
-          2SWAP
-          double_XZ INLINECALLDICT
-        }>ELSE<{
-          s4 PUSH
-          s6 s2 s3 PUXC2
-          s5 s0 s9 XC2PU
-          add_neighbour_XZ INLINECALLDICT
-          s4 s5 XCHG2
-          double_XZ INLINECALLDICT
-          s0 s3 s5 XCHG3
-          s1 s4 XCHG
-        }>
-        s0 s3 s5 XCHG3
-        s1 s4 XCHG
+        s3 PUSH
+        s5 s2 s3 PUXC2
+        s1 s8 XCPU
+        add_neighbour_XZ INLINECALLDICT
+        s3 s4 XCHG2
+        double_XZ INLINECALLDICT
+        s4 s3 s3 XCHG3
+        s0 s2 XCHG
       }>
+      4 ROLL
     }>
-    4 BLKDROP
+    3 BLKDROP
     s3 POP
     NIP
     div INLINECALLDICT
