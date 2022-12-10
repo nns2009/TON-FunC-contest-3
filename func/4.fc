@@ -134,10 +134,11 @@ int mul(int x1, int factor) method_id {
 	var (X1, Z1) = double_XZ(X0, Z0);
 	int skip = -1;
 
-	int i = ubitsize(factor) - 1;
-	while (i > 0) {
-		i -= 1;
-		int bit = factor & (1 << i);
+	;; int i = ubitsize(factor) - 1;
+	int mask = (1 << ubitsize(factor)) >> 1;
+	while (mask > 1) {
+		mask >>= 1;
+		int bit = factor & mask;
 
 		if (bit) {
 			(X0, Z0) = add_neighbour_XZ(X0, Z0, X1, Z1, x1); ;; var (midX, midZ) = 

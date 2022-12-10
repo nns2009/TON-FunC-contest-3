@@ -172,15 +172,14 @@ PROGRAM{
     double_XZ INLINECALLDICT
     s4 PUSH
     UBITSIZE
-    DEC
+    POW2
+    1 RSHIFT#
     WHILE:<{
       DUP
-      0 GTINT
+      1 GTINT
     }>DO<{
-      DEC
-      DUP
-      POW2
-      s6 s(-1) PUXC
+      1 RSHIFT#
+      s5 s0 PUSH2
       AND
       IF:<{
         s3 s4 s2 XC2PU
