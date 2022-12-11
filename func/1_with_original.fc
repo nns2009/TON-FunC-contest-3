@@ -282,8 +282,9 @@ cell restore() impure {
 
 
 
-const int max_single_cells = 25; ;; 260;
-const int max_single_data_bits = 32000;
+const int max_original_cell = 175;
+const int max_cells_in_group = 950;
+const int max_single_data_bits = 39000; ;; 32000;
 
 global int group_cells_remaining;
 global int group_bits_remaining;
@@ -305,7 +306,7 @@ builder bs_pop2() impure inline {
 
 
 () reset_group_limits() impure inline {
-	group_cells_remaining = max_single_cells;
+	group_cells_remaining = max_cells_in_group;
 	group_bits_remaining = max_single_data_bits;
 }
 ;; 'bs' length has to be >= 1 !
@@ -432,10 +433,10 @@ global cell cell_to_index;
 		return ();
 	}
 
-	(int d_cells, int data_bits, int cell_refs, int success) = compute_data_size?(c, max_single_cells);
+	(int d_cells, int data_bits, int cell_refs, int success) = compute_data_size?(c, max_original_cell);
 	int small = false;
 	if (success) {
-		if ((d_cells <= max_single_cells) & (data_bits <= max_single_data_bits)) {
+		if ((d_cells <= max_original_cell) & (data_bits <= max_single_data_bits)) {
 			small = true;
 		}
 	}
