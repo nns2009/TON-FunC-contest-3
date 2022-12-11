@@ -56,22 +56,24 @@ slice i_address(tuple t) inline {
 	return t.at(2);
 }
 
-(cell, int, int) load_data() inline {
+(cell, cell, int, int) load_data() inline {
 	slice cs = get_data().begin_parse();
 
 	if (cs.slice_empty?()) {
-		return (new_dict(), -1, -1);
+		return (new_dict(), new_dict(), -1, -1);
 	}
 
 	cell participants = cs~load_dict();
+	cell sorter = cs~load_dict();
 	int opt_count = cs~load_uint(32);
 	int opt_effective_total = cs~load_grams();
-	return (participants, opt_count, opt_effective_total);
+	return (participants, sorter, opt_count, opt_effective_total);
 }
 
-() save_data(cell participants, int opt_count, int opt_effective_total) impure inline {
+() save_data(cell participants, cell sorter, int opt_count, int opt_effective_total) impure inline {
 	set_data(begin_cell()
 		.store_dict(participants)
+		.store_dict(sorter)
 		.store_uint(opt_count, 32)
 		.store_grams(opt_effective_total)
 		.end_cell()
@@ -81,51 +83,10 @@ slice i_address(tuple t) inline {
 (cell, int) udict_get_ref?fixed(cell dict, int key_len, int index) asm(index dict key_len) "DICTUGETREF" "NULLSWAPIFNOT";
 
 
-(tuple, int) sort_participants_into_tuple(cell participants) impure {
+
+(tuple, int) sorter_to_participant_tuple(cell sorter) impure {
 	tuple ps = empty_tuple();
 	int total_stake = 0;
-
-	cell sorter = new_dict();
-
-	;; Gas-Hook here: 21 702 370
-	;; int testCount = 100000;
-	;; int testI = 0;
-	;; while (testI < testCount) {
-	;; 	testI += 1;
-	;; }
-	;; total_stake += testI - testCount;
-
-	int hash = -1;
-	do {
-		(hash, slice cs, int f) = participants.udict_get_next?(256, hash);
-		if (f) {
-			;; cs = stake(Grams), max_factor(uint24), sender_address(slice)
-			builder next_list = begin_cell()
-				;; .store_uint(hash, 256)
-				.store_slice(cs);
-			
-			int stake = cs~load_grams();
-			int max_factor = cs~load_uint(24);
-
-			;; {
-			;; 	slice addr = cs~load_msg_addr();
-			;; 	(int wc, int addr_hash) = parse_std_addr(addr);
-			;; 	wc~dump();
-			;; }
-
-			(cell sor_list, int sor_f) = sorter.udict_get_ref?fixed(sorter_key_len, stake);
-			if (sor_f) {
-				;; ~dump(next_list.end_cell());
-				next_list = next_list.store_ref(sor_list);
-				;; ~dump(next_list.end_cell());
-			}
-			sor_list~impure_touch();
-			sor_f~impure_touch();
-			
-			sorter~udict_set_ref(sorter_key_len, stake, next_list.end_cell());
-		}
-	} until (~ f);
-
 	int stake = sorter_upper_bound;
 	;; Gas-Hook here: 7 302 090
 	;; int testCount = 100000;
@@ -174,6 +135,52 @@ slice i_address(tuple t) inline {
 	;; stake += testI - testCount;
 
 	return (ps, total_stake);
+}
+
+(cell, tuple, int) sort_participants_into_tuple(cell participants) impure inline {
+	cell sorter = new_dict();
+
+	;; Gas-Hook here: 21 702 370
+	;; int testCount = 100000;
+	;; int testI = 0;
+	;; while (testI < testCount) {
+	;; 	testI += 1;
+	;; }
+	;; total_stake += testI - testCount;
+
+	int hash = -1;
+	do {
+		(hash, slice cs, int f) = participants.udict_get_next?(256, hash);
+		if (f) {
+			;; cs = stake(Grams), max_factor(uint24), sender_address(slice)
+			builder next_list = begin_cell()
+				;; .store_uint(hash, 256)
+				.store_slice(cs);
+			
+			int stake = cs~load_grams();
+			;; int max_factor = cs~load_uint(24);
+
+			;; {
+			;; 	slice addr = cs~load_msg_addr();
+			;; 	(int wc, int addr_hash) = parse_std_addr(addr);
+			;; 	wc~dump();
+			;; }
+
+			(cell sor_list, int sor_f) = sorter.udict_get_ref?fixed(sorter_key_len, stake);
+			if (sor_f) {
+				;; ~dump(next_list.end_cell());
+				next_list = next_list.store_ref(sor_list);
+				;; ~dump(next_list.end_cell());
+			}
+			;; sor_list~impure_touch();
+			;; sor_f~impure_touch();
+			
+			sorter~udict_set_ref(sorter_key_len, stake, next_list.end_cell());
+		}
+	} until (~ f);
+
+	(tuple ps, int total_stake) = sorter_to_participant_tuple(sorter);
+	return (sorter, ps, total_stake);
 }
 
 (int, int) optimize_effective_stake(tuple ps) impure {
@@ -232,7 +239,7 @@ slice i_address(tuple t) inline {
 
 	(int op, int query_id) = (in_msg_body~load_uint(32), in_msg_body~load_uint(64));
 
-	(cell participants, _, _) = load_data();
+	(cell participants, _, _, _) = load_data();
 
 	if(op == 0x5ce28eea) { ;; participate
 		(slice cs, int f) = participants.udict_get?(256, sender_hashed);
@@ -254,13 +261,13 @@ slice i_address(tuple t) inline {
 			begin_cell().store_grams(stake).store_uint(max_factor, 24).store_slice(sender)
 		);
 
-		save_data(participants, 0, 0);
+		save_data(participants, null(), 0, 0);
 	}
 
 	if(op == 0x207fa5f5) { ;; try_elect
 		;; Gas-Hook here: 21 702 558
 
-		(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
+		(cell sorter, tuple ps, int total_stake) = sort_participants_into_tuple(participants);
 
 		;; Gas-Hook here: 7 302 126
 		;; int testCount = 100000;
@@ -270,23 +277,6 @@ slice i_address(tuple t) inline {
 		;; }
 		;; query_id += testI - testCount;
 
-		;; if (ps.tuple_len() >= 5) {
-		;; 	throw(77);
-		;; } else {
-		;; 	var msg = begin_cell()
-		;; 		.store_uint(0x18, 6)
-		;; 		.store_slice(sender)
-		;; 		.store_coins(0)
-		;; 		.store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-		;; 		.store_uint(0xeefa5ea4, 32) ;; success op_code
-		;; 		.store_uint(query_id, 64)
-		;; 		.store_uint(45, 32)
-		;; 		.store_grams(699)
-		;; 		.store_grams(344) ;; unused_stake
-		;; 		.end_cell();
-		;; 	send_raw_message(msg, 64);
-		;; 	return ();
-		;; }
 		(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 
 		;; (ps, total_stake) = sort_participants_into_tuple(participants);
@@ -311,7 +301,7 @@ slice i_address(tuple t) inline {
 			.end_cell();
 		send_raw_message(msg, 64);
 
-		save_data(participants, opt_count, opt_effective_total);
+		save_data(participants, sorter, opt_count, opt_effective_total);
 	}
 }
 
@@ -333,9 +323,11 @@ forall X -> tuple tuple_from_one(X x) asm "SINGLE";
 	;; return (tuple_from_one(45), tuple_from_one(56));
 	;; return (empty_tuple(), empty_tuple());
 
-	(cell participants, int opt_count, int opt_effective_total) = load_data();
+	(_, cell sorter, int opt_count, int opt_effective_total) = load_data();
 
-	(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
+	(tuple ps, int total_stake) = sorter_to_participant_tuple(sorter);
+	;; sort_participants_into_tuple(participants);
+
 	;; (int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 	;; ^ Load "opt_count" and "opt_effective_total" from storage instead
 
