@@ -138,7 +138,7 @@ tuple binary_tree_add(tuple root, tuple v) impure inline {
 	}
 	int mid = root.at(2);
 	;; mid~dump();
-	if (stake > mid) {
+	if (stake >= mid) {
 		;; return binary_tree_add(root.at(0), v);
 		return set_first(root, binary_tree_add(root.first(), v));
 	} else {
