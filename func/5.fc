@@ -95,7 +95,10 @@ tuple merge_sort(tuple vs, int l, int r) impure {
 	int li = 0;
 	int ri = 0;
 
-	while ((li < left.tuple_len()) & (ri < right.tuple_len())) {
+	int left_len = left.tuple_len();
+	int right_len = right.tuple_len();
+
+	while ((li < left_len) & (ri < right_len)) {
 		tuple lv = left.at(li);
 		tuple rv = right.at(ri);
 		if (lv.i_stake() >= rv.i_stake()) {
@@ -107,17 +110,68 @@ tuple merge_sort(tuple vs, int l, int r) impure {
 		}
 	}
 
-	while (li < left.tuple_len()) {
+	while (li < left_len) {
 		res~tpush(left.at(li));
 		li += 1;
 	}
-	while (ri < right.tuple_len()) {
+	while (ri < right_len) {
 		res~tpush(right.at(ri));
 		ri += 1;
 	}
 
 	return res;
 }
+
+
+forall X, Y, Z, W -> tuple binary_tree_entry(X x, Y y, Z z, W w) asm "4 TUPLE";
+forall X -> tuple set_first(tuple t, X value) asm "SETFIRST";
+forall X -> tuple set_second(tuple t, X value) asm "SETSECOND";
+
+
+tuple binary_tree_add(tuple root, tuple v) impure inline {
+	;; root~dump();
+	;; v~dump();
+
+	int stake = v.i_stake();
+	if (null?(root)) {
+		return binary_tree_entry(null(), null(), stake, v);
+	}
+	int mid = root.at(2);
+	;; mid~dump();
+	if (stake > mid) {
+		;; return binary_tree_add(root.at(0), v);
+		return set_first(root, binary_tree_add(root.first(), v));
+	} else {
+		;; return null();
+		return set_second(root, binary_tree_add(root.second(), v));
+	}
+}
+
+tuple binary_tree_flatten(tuple accumulator, tuple root) impure {
+	if (null?(root)) { return accumulator; }
+	
+	accumulator = binary_tree_flatten(accumulator, root.first());
+	accumulator~tpush(root.at(3));
+	accumulator = binary_tree_flatten(accumulator, root.second());
+
+	return accumulator;
+}
+
+tuple binary_tree_sort(tuple vs) impure {
+	tuple root = null();
+
+	int i = 0;
+	int count = vs.tuple_len();
+	while (i < count) {
+		root = binary_tree_add(root, vs.at(i));
+		i += 1;
+	}
+	;; root~dump();
+
+	tuple res = binary_tree_flatten(empty_tuple(), root);
+	return res;
+}
+
 
 (tuple, int) sort_participants_into_tuple(cell participants) impure {
 	tuple ps = empty_tuple();
@@ -138,11 +192,14 @@ tuple merge_sort(tuple vs, int l, int r) impure {
 	if (ps.tuple_len()) {
 		ps = merge_sort(ps, 0, ps.tuple_len());
 	}
+	;; ps = binary_tree_sort(ps);
 
 	;; ps~dump();
 
 	return (ps, total_stake);
 }
+
+
 
 (int, int) optimize_effective_stake(tuple ps) impure {
 	int count = ps.tuple_len();
