@@ -28,7 +28,7 @@
 
 
 int tuple_len(tuple t) asm "TLEN";
-(tuple, int) ~tuple_pop(tuple t) asm "TPOP";
+forall X -> (tuple, X) ~tuple_pop(tuple t) asm "TPOP";
 
 
 ;; 120 should be enough as the max size of VarUInteger 16
@@ -40,23 +40,23 @@ const max_factor_denominator = 65536;
 ;; participants: address_hashed -> stake(Grams), max_factor(uint24), sender_address(slice)
 ;; NEW:
 ;; ps = [stake(int), max_factor(int), address(slice)][]
-[int, int, slice] participant_tuple(int stake, int max_factor, slice address) inline {
+[int, int, slice] participant_tuple(int stake, int max_factor, slice address) {
 	return triple(stake, max_factor, address);
 }
-(int, int, slice) participant_break([int, int, slice] t) inline {
+(int, int, slice) participant_break([int, int, slice] t) {
 	return untriple(t);
 }
-int i_stake(tuple t) inline {
+int i_stake(tuple t) {
 	return t.at(0);
 }
-int i_max_factor(tuple t) inline {
+int i_max_factor(tuple t) {
 	return t.at(1);
 }
-slice i_address(tuple t) inline {
+slice i_address(tuple t) {
 	return t.at(2);
 }
 
-(cell, int, int) load_data() inline {
+(cell, int, int) load_data() {
 	slice cs = get_data().begin_parse();
 
 	if (cs.slice_empty?()) {
@@ -69,7 +69,7 @@ slice i_address(tuple t) inline {
 	return (participants, opt_count, opt_effective_total);
 }
 
-() save_data(cell participants, int opt_count, int opt_effective_total) impure inline {
+() save_data(cell participants, int opt_count, int opt_effective_total) impure {
 	set_data(begin_cell()
 		.store_dict(participants)
 		.store_uint(opt_count, 32)
@@ -81,100 +81,162 @@ slice i_address(tuple t) inline {
 (cell, int) udict_get_ref?fixed(cell dict, int key_len, int index) asm(index dict key_len) "DICTUGETREF" "NULLSWAPIFNOT";
 
 
+tuple merge_lists(tuple left, tuple right) inline {
+	tuple res = empty_tuple();
+	int li = 0;
+	int ri = 0;
+
+	int left_len = left.tuple_len();
+	int right_len = right.tuple_len();
+
+	while ((li < left_len) & (ri < right_len)) {
+		tuple lv = left.at(li);
+		tuple rv = right.at(ri);
+		if (lv.i_stake() >= rv.i_stake()) {
+			res~tpush(lv);
+			li += 1;
+		} else {
+			res~tpush(rv);
+			ri += 1;
+		}
+	}
+
+	while (li < left_len) {
+		res~tpush(left.at(li));
+		li += 1;
+	}
+	while (ri < right_len) {
+		res~tpush(right.at(ri));
+		ri += 1;
+	}
+
+	return res;
+}
+
+tuple merge_sort(tuple vs, int l, int r) impure {
+	if (r - l == 1) {
+		tuple res = empty_tuple();
+		res~tpush(vs.at(l));
+		return res;
+	}
+
+	int m = (l + r) / 2;
+	tuple left = merge_sort(vs, l, m);
+	tuple right = merge_sort(vs, m, r);
+	tuple res = merge_lists(left, right);
+	return res;
+}
+
+
+tuple merge_sort_non_recursive(tuple vs) {
+	if (vs.tuple_len() == 0) {
+		return vs;
+	}
+
+	tuple ts = empty_tuple();
+	repeat (vs.tuple_len()) {
+		ts~tpush(single(vs~tuple_pop()));
+	}
+	;; tuple ts = vs;
+
+	while (ts.tuple_len() > 1) {
+		tuple next_ts = empty_tuple();
+
+		while (ts.tuple_len() >= 2) {
+			tuple one = ts~tuple_pop();
+			tuple another = ts~tuple_pop();
+			tuple combined = merge_lists(one, another);
+			next_ts~tpush(combined);
+		}
+		if (ts.tuple_len() > 0) {
+			next_ts~tpush(ts.first());
+		}
+
+		ts = next_ts;
+	}
+
+	return ts.first();
+}
+
+
+forall X, Y, Z, W -> tuple binary_tree_entry(X x, Y y, Z z, W w) asm "4 TUPLE";
+forall X -> tuple set_first(tuple t, X value) asm "SETFIRST";
+forall X -> tuple set_second(tuple t, X value) asm "SETSECOND";
+
+
+tuple binary_tree_add(tuple root, tuple v) impure inline {
+	;; root~dump();
+	;; v~dump();
+
+	int stake = v.i_stake();
+	if (null?(root)) {
+		return binary_tree_entry(null(), null(), stake, v);
+	}
+	int mid = root.at(2);
+	;; mid~dump();
+	if (stake >= mid) {
+		;; return binary_tree_add(root.at(0), v);
+		return set_first(root, binary_tree_add(root.first(), v));
+	} else {
+		;; return null();
+		return set_second(root, binary_tree_add(root.second(), v));
+	}
+}
+
+tuple binary_tree_flatten(tuple accumulator, tuple root) impure {
+	if (null?(root)) { return accumulator; }
+	
+	accumulator = binary_tree_flatten(accumulator, root.first());
+	accumulator~tpush(root.at(3));
+	accumulator = binary_tree_flatten(accumulator, root.second());
+
+	return accumulator;
+}
+
+tuple binary_tree_sort(tuple vs) impure {
+	tuple root = null();
+
+	int i = 0;
+	int count = vs.tuple_len();
+	while (i < count) {
+		root = binary_tree_add(root, vs.at(i));
+		i += 1;
+	}
+	;; root~dump();
+
+	tuple res = binary_tree_flatten(empty_tuple(), root);
+	return res;
+}
+
+
 (tuple, int) sort_participants_into_tuple(cell participants) impure {
 	tuple ps = empty_tuple();
 	int total_stake = 0;
 
-	cell sorter = new_dict();
-
-	;; Gas-Hook here: 21 702 370
-	;; int testCount = 100000;
-	;; int testI = 0;
-	;; while (testI < testCount) {
-	;; 	testI += 1;
-	;; }
-	;; total_stake += testI - testCount;
-
 	int hash = -1;
 	do {
 		(hash, slice cs, int f) = participants.udict_get_next?(256, hash);
-		if (f) {
-			;; cs = stake(Grams), max_factor(uint24), sender_address(slice)
-			builder next_list = begin_cell()
-				;; .store_uint(hash, 256)
-				.store_slice(cs);
-			
+		if (f) {			
 			int stake = cs~load_grams();
 			int max_factor = cs~load_uint(24);
-
-			;; {
-			;; 	slice addr = cs~load_msg_addr();
-			;; 	(int wc, int addr_hash) = parse_std_addr(addr);
-			;; 	wc~dump();
-			;; }
-
-			(cell sor_list, int sor_f) = sorter.udict_get_ref?fixed(sorter_key_len, stake);
-			if (sor_f) {
-				;; ~dump(next_list.end_cell());
-				next_list = next_list.store_ref(sor_list);
-				;; ~dump(next_list.end_cell());
-			}
-			sor_list~impure_touch();
-			sor_f~impure_touch();
-			
-			sorter~udict_set_ref(sorter_key_len, stake, next_list.end_cell());
+			slice address = cs~load_msg_addr();
+			ps~tpush(participant_tuple(stake, max_factor, address));
+			total_stake += stake;
 		}
 	} until (~ f);
 
-	int stake = sorter_upper_bound;
-	;; Gas-Hook here: 7 302 090
-	;; int testCount = 100000;
-	;; int testI = 0;
-	;; while (testI < testCount) {
-	;; 	testI += 1;
+	;; if (ps.tuple_len()) {
+	;; 	ps = merge_sort(ps, 0, ps.tuple_len());
 	;; }
-	;; stake += testI - testCount;
+	ps = merge_sort_non_recursive(ps);
+	;; ps = binary_tree_sort(ps);
 
-	do {
-		(stake, slice sor_pre_list, int sor_f) = sorter.udict_get_prev?(sorter_key_len, stake);
-		
-		if (sor_f) {
-			cell sor_list = sor_pre_list.preload_ref();
-
-			int list_f = -1;
-			do {
-				slice list_cs = sor_list.begin_parse();
-				int stake = list_cs~load_grams();
-				int max_factor = list_cs~load_uint(24);
-				slice address = list_cs~load_msg_addr();
-
-				ps~tpush(participant_tuple(stake, max_factor, address));
-				total_stake += stake;
-
-				;; {
-				;; 	(int wc, int addr_hash) = parse_std_addr(address);
-				;; 	;; wc~dump();
-				;; }
-
-				if (list_cs.slice_refs_empty?()) {
-					list_f = 0;
-				} else {
-					sor_list = list_cs.preload_ref();
-				}
-			} until (~ list_f);
-		}
-	} until (~ sor_f);
-
-	;; Gas-Hook here: 7302082
-	;; int testCount = 100000;
-	;; int testI = 0;
-	;; while (testI < testCount) {
-	;; 	testI += 1;
-	;; }
-	;; stake += testI - testCount;
+	;; ps~dump();
 
 	return (ps, total_stake);
 }
+
+
 
 (int, int) optimize_effective_stake(tuple ps) impure {
 	int count = ps.tuple_len();
@@ -261,32 +323,6 @@ slice i_address(tuple t) inline {
 		;; Gas-Hook here: 21 702 558
 
 		(tuple ps, int total_stake) = sort_participants_into_tuple(participants);
-
-		;; Gas-Hook here: 7 302 126
-		;; int testCount = 100000;
-		;; int testI = 0;
-		;; while (testI < testCount) {
-		;; 	testI += 1;
-		;; }
-		;; query_id += testI - testCount;
-
-		;; if (ps.tuple_len() >= 5) {
-		;; 	throw(77);
-		;; } else {
-		;; 	var msg = begin_cell()
-		;; 		.store_uint(0x18, 6)
-		;; 		.store_slice(sender)
-		;; 		.store_coins(0)
-		;; 		.store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-		;; 		.store_uint(0xeefa5ea4, 32) ;; success op_code
-		;; 		.store_uint(query_id, 64)
-		;; 		.store_uint(45, 32)
-		;; 		.store_grams(699)
-		;; 		.store_grams(344) ;; unused_stake
-		;; 		.end_cell();
-		;; 	send_raw_message(msg, 64);
-		;; 	return ();
-		;; }
 		(int opt_count, int opt_effective_total) = optimize_effective_stake(ps);
 
 		;; (ps, total_stake) = sort_participants_into_tuple(participants);
@@ -315,15 +351,7 @@ slice i_address(tuple t) inline {
 	}
 }
 
-;; slice hash_to_address(int hash) {
-;; 	return begin_cell()
-;; 		.store_uint(4, 3)
-;; 		.store_int(-1, 8)
-;; 		.store_uint(hash, 256)
-;; 	.end_cell().begin_parse();
-;; }
-
-[slice, int] answer_entry(slice address, int amount) inline {
+[slice, int] answer_entry(slice address, int amount) {
 	return [address, amount];
 }
 
