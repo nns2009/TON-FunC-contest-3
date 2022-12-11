@@ -4,7 +4,7 @@ import { Address, CommentMessage, Slice } from 'ton';
 import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, invokeGetMethodWithResultsAndLogsGas } from './shared.js';
 
 
-let compiledSources = contractLoader('./../func/stdlib.fc', './../func/5.fc');
+let compiledSources = contractLoader(['./../func/stdlib.fc', './../func/5.fc']);
 
 const factor_denominator = 65536;
 
@@ -72,6 +72,7 @@ async function testElection(...requests: ParticipateRequest[]) {
 			suint(electQueryId, 64),
 		)
 	));
+	console.info('debugLogs:', electResult.debugLogs);
 
 	if (participants.size < 5) {
 		if (electResult.type !== 'failed') {
@@ -147,23 +148,24 @@ async function testElection(...requests: ParticipateRequest[]) {
 // 	{ wc: 12, addrHash: 1000, stake: 100, maxFactor: factor_denominator * 2 },
 // );
 
-try {
-	await testElection(
-		{ wc: 1, addrHash: 1001, stake: 100, maxFactor: 1 },
-		{ wc: 1, addrHash: 1002, stake: 100, maxFactor: factor_denominator },
-		{ wc: 1, addrHash: 1003, stake: 100, maxFactor: 1 },
-		{ wc: 1, addrHash: 1004, stake: 100, maxFactor: 2 },
+// try {
+// 	await testElection(
+// 		{ wc: 1, addrHash: 1001, stake: 100, maxFactor: 1 },
+// 		{ wc: 1, addrHash: 1002, stake: 100, maxFactor: factor_denominator },
+// 		{ wc: 1, addrHash: 1003, stake: 100, maxFactor: 1 },
+// 		{ wc: 1, addrHash: 1004, stake: 100, maxFactor: 2 },
 
-		{ wc: 1, addrHash: 1005, stake: 30, maxFactor: factor_denominator * 100 },
-		{ wc: 1, addrHash: 1005, stake: 50, maxFactor: factor_denominator * 90 },
-		{ wc: 1, addrHash: 1005, stake: 20, maxFactor: factor_denominator * 2 },
+// 		{ wc: 1, addrHash: 1005, stake: 30, maxFactor: factor_denominator * 100 },
+// 		{ wc: 1, addrHash: 1005, stake: 50, maxFactor: factor_denominator * 90 },
+// 		{ wc: 1, addrHash: 1005, stake: 20, maxFactor: factor_denominator * 2 },
 
-		{ wc: 3, addrHash: 3001, stake: 50, maxFactor: 10 },
-		{ wc: 3, addrHash: 3001, stake: 35, maxFactor: 10 },
-	);
-} catch (ex) {
-	console.error('Error:', ex);
-}
+// 		{ wc: 3, addrHash: 3001, stake: 50, maxFactor: 10 },
+// 		{ wc: 3, addrHash: 3001, stake: 35, maxFactor: 10 },
+// 	);
+// } catch (ex) {
+// 	console.error('Error:', ex);
+// }
+
 // await testElection(
 // 	...Array(5).fill(null).map((_, i) => ({ wc: i + 100, addrHash: i, stake: 100, maxFactor: factor_denominator })),
 // 	...Array(100).fill(null).map((_, i) => ({ wc: i, addrHash: i, stake: 10, maxFactor: factor_denominator })),
@@ -190,39 +192,39 @@ try {
 // 	{ wc: 100, addrHash: 10000, stake: 100000, maxFactor: factor_denominator * 100 },
 // );
 
-// await testElection(
-// 	...(
-// 		Object.entries({
-// 		"0": {
-// 		  "max_factor": 192076,
-// 		  "stakeAmount": 1411,
-// 		  "sender": "0"
-// 		},
-// 		"1": {
-// 		  "max_factor": 377587,
-// 		  "stakeAmount": 6671,
-// 		  "sender": "1"
-// 		},
-// 		"2": {
-// 		  "max_factor": 270950,
-// 		  "stakeAmount": 8918,
-// 		  "sender": "2"
-// 		},
-// 		"3": {
-// 		  "max_factor": 302714,
-// 		  "stakeAmount": 431,
-// 		  "sender": "3"
-// 		},
-// 		"4": {
-// 		  "max_factor": 111062,
-// 		  "stakeAmount": 7158,
-// 		  "sender": "4"
-// 		}
-// 	}).map(([k, v]) => ({
-// 		wc: parseInt(k),
-// 		addrHash: parseInt(k) * 1000,
-// 		stake: v.stakeAmount,
-// 		maxFactor: v.max_factor,
-// 	}))
-// 	)
-// )
+await testElection(
+	...(
+		Object.entries({
+		"0": {
+		  "max_factor": 192076,
+		  "stakeAmount": 1411,
+		  "sender": "0"
+		},
+		"1": {
+		  "max_factor": 377587,
+		  "stakeAmount": 6671,
+		  "sender": "1"
+		},
+		"2": {
+		  "max_factor": 270950,
+		  "stakeAmount": 8918,
+		  "sender": "2"
+		},
+		"3": {
+		  "max_factor": 302714,
+		  "stakeAmount": 431,
+		  "sender": "3"
+		},
+		"4": {
+		  "max_factor": 111062,
+		  "stakeAmount": 7158,
+		  "sender": "4"
+		}
+	}).map(([k, v]) => ({
+		wc: parseInt(k),
+		addrHash: parseInt(k) * 1000,
+		stake: v.stakeAmount,
+		maxFactor: v.max_factor,
+	}))
+	)
+)
