@@ -12,10 +12,6 @@ forall X -> (tuple, X) tuple_pop(tuple t) asm "TPOP";
 
 (cell, int) udict_get_ref?fixed(cell dict, int key_len, int index) asm(index dict key_len) "DICTUGETREF" "NULLSWAPIFNOT";
 
-forall X -> () print(X value) inline {
-	;; ~dump(value);
-}
-
 
 const Cell_Max_Bits = 1023;
 const Cell_Max_Refs = 4;
@@ -36,7 +32,6 @@ const int create_builder_code = 4;
 const int end_builder_code = 5;
 ;; const int command_send_code = 5;
 const int load_by_index_code = 6;
-const int load_by_ref_code = 7;
 
 
 (int, cell) load_data() inline {
@@ -69,18 +64,12 @@ global slice in_cs;
 	;; dump_stack();
 	;; len~dump();
 	if (in_cs.slice_bits() < len) {
-		if (in_cs.slice_bits() != 0) {
-			throw(909);
-		}
 		if (in_cs.slice_refs_empty?()) {
 			in_cells_index += 1;
 			if (in_cells_index >= in_cells_count) {
 				throw(444); ;; Remove for optimization?
 			}
 			(cell next_group, int f) = in_cells.udict_get_ref?fixed(groups_dict_len, in_cells_index);
-			if (~ f) {
-				throw (808);
-			}
 			;; f should always be "true" (found) because we iterate through known indexes
 			in_cs = next_group.begin_parse();
 		} else {
@@ -89,22 +78,11 @@ global slice in_cs;
 	}
 }
 
-
-global cell restore_cells;
-global int restore_cell_count;
-
-
 int read_uint(int len) impure inline {
 	read_structure_advance(len);
 	(slice ncs, int res) = in_cs.load_uint(len);
 	in_cs = ncs;
 	;; int res = in_cs~load_uint(len);
-	return res;
-}
-int read_int(int len) impure inline {
-	read_structure_advance(len);
-	(slice ncs, int res) = in_cs.load_int(len);
-	in_cs = ncs;
 	return res;
 }
 ;; No <function templating> in FunC => copy-paste :(
@@ -113,39 +91,6 @@ slice read_slice(int len) impure inline {
 	(slice ncs, slice res) = in_cs.load_bits(len);
 	in_cs = ncs;
 	;; slice res = in_cs~load_slice(len);
-	return res;
-}
-cell read_cell() impure inline {
-	;; advance refs
-	int advance_group = read_uint(1);
-
-	;; if (in_cs.slice_refs() == 1) {
-	;; 	in_cs = in_cs.preload_ref().begin_parse();
-	;; }
-	if (advance_group) {
-		in_cells_index += 1;
-		if (in_cells_index >= in_cells_count) {
-			throw(888); ;; Remove for optimization?
-		}
-		(cell next_group, int f) = in_cells.udict_get_ref?fixed(groups_dict_len, in_cells_index);
-		if (~ f) {
-			throw (707);
-		}
-		;; f should always be "true" (found) because we iterate through known indexes
-		in_cs = next_group.begin_parse();
-	} else {
-		int advance_ref = read_int(1);
-		if (advance_ref) {
-			in_cs = in_cs.preload_ref().begin_parse();
-		}
-	}
-
-	(slice next_in_cs, cell res) = in_cs.load_ref();
-	in_cs = next_in_cs;
-
-	restore_cells = restore_cells.udict_set_ref(cell_index_len, restore_cell_count, res);
-	restore_cell_count += 1;
-
 	return res;
 }
 
@@ -157,14 +102,16 @@ slice read_bits() impure inline {
 	return read_slice(bitslen);
 }
 
+global cell restore_cells;
+global int restore_cell_count;
 
 cell restore() impure {
-	print(222);
+	;; ~dump(100300500);
 	builder b = begin_cell();
 
 	do {
 		int op_code = read_op_code();
-		print(op_code);
+		;; op_code~dump();
 
 		int leave = 0;
 		if (op_code == create_builder_code) {
@@ -174,17 +121,8 @@ cell restore() impure {
 		elseif (op_code == load_by_index_code) {
 			int index = read_uint(cell_index_len);
 			(cell child, int f) = restore_cells.udict_get_ref?fixed(cell_index_len, index);
-			if (~ f) {
-				;; ~dump(index);
-				;; ~dump(restore_cell_count);
-				throw (606);
-			}
 			;; f should always be found
 			b = b.store_ref(child);
-		}
-		elseif (op_code == load_by_ref_code) {
-			cell c = read_cell();
-			b = b.store_ref(c);
 		}
 		elseif (op_code == end_builder_code) {
 			slice bits = read_bits();
@@ -194,13 +132,11 @@ cell restore() impure {
 		}
 	} until (leave);
 
-	print(333);
-	print(restore_cell_count);
-
 	cell res = b.end_cell();
 	restore_cells = restore_cells.udict_set_ref(cell_index_len, restore_cell_count, res);
 	restore_cell_count += 1;
-	
+
+	;; ~dump(100300999);
 	return res;
 }
 
@@ -240,17 +176,8 @@ cell restore() impure {
 		restore_cells = new_dict();
 		restore_cell_count = 0;
 
-		int first_op_code = read_op_code(); ;; Skip the first instruction, it should always be "create_builder"
-		print(in_cells_count);
-		print(first_op_code);
-
-		cell full = null();
-		if (first_op_code == load_by_ref_code) {
-			full = read_cell(); ;; in_cs.preload_ref();
-			;; full = in_cs~load_ref();
-		} else {
-			full = restore();
-		}
+		read_op_code(); ;; Skip the first instruction, it should always be "create_builder"
+		cell full = restore();
 
 		var msg = begin_cell()
 			.store_uint(0x18, 6)
@@ -282,11 +209,6 @@ cell restore() impure {
 
 
 
-const int max_single_cells = 25; ;; 260;
-const int max_single_data_bits = 32000;
-
-global int group_cells_remaining;
-global int group_bits_remaining;
 
 global builder last_builder;
 global tuple bs; ;; BuilderS
@@ -304,10 +226,6 @@ builder bs_pop2() impure inline {
 ;; }
 
 
-() reset_group_limits() impure inline {
-	group_cells_remaining = max_single_cells;
-	group_bits_remaining = max_single_data_bits;
-}
 ;; 'bs' length has to be >= 1 !
 () collapse_builders() impure inline {
 	builder inner = bs_pop2();
@@ -318,10 +236,7 @@ builder bs_pop2() impure inline {
 		c = b.store_ref(c).end_cell();
 	}
 
-	if (out_cells.tuple_len() >= 255) { throw(10255); } ;; !debug
-
 	out_cells = out_cells.tpush(c);
-	reset_group_limits();
 }
 () collapse_remaining_builders() impure inline {
 	bs = bs.tpush(last_builder);
@@ -331,19 +246,15 @@ builder bs_pop2() impure inline {
 	}
 }
 () maybe_collapse_builders() impure inline {
-	if ((bs.tuple_len() >= group_max_cells) |
-		(group_bits_remaining <= 0) |
-		(group_cells_remaining <= 0)) {
+	if (bs.tuple_len() >= group_max_cells) {
 		collapse_builders();
 	}
 }
 
 
 () write_structure_advance(int len) impure inline {
-	;; ?? Add extra check for overall bit size ??
 	if (last_builder.builder_bits() + len > Cell_Max_Bits) {
 		bs = bs.tpush(last_builder);
-		group_cells_remaining -= 1;
 		maybe_collapse_builders();
 		last_builder = begin_cell();
 	}
@@ -351,46 +262,11 @@ builder bs_pop2() impure inline {
 () write_uint(int v, int len) impure inline {
 	write_structure_advance(len);
 	last_builder = last_builder.store_uint(v, len);
-	group_bits_remaining -= len;
-}
-() write_int(int v, int len) impure inline {
-	write_structure_advance(len);
-	last_builder = last_builder.store_int(v, len);
-	group_bits_remaining -= len;
 }
 () write_slice(slice bits) impure inline {
 	write_structure_advance(bits.slice_bits());
 	last_builder = last_builder.store_slice(bits);
-	group_bits_remaining -= bits.slice_bits();
 }
-() write_cell(cell c, int distinct_cells, int data_bits) impure inline {
-	int advance_group = 0;
-	if (group_cells_remaining < distinct_cells) { advance_group = 1; }
-	elseif (group_bits_remaining < data_bits) { advance_group = 1; }
-	elseif (bs.tuple_len() >= group_max_cells) { advance_group = 1; } ;; not necessary ?
-
-	;; advance_group = 1;
-
-	write_uint(advance_group, 1);
-	if (advance_group) {
-		bs = bs.tpush(last_builder);
-		collapse_builders(); ;; not "maybe"
-		last_builder = begin_cell();
-	} else {
-		int advance_ref = last_builder.builder_refs() >= 3;
-		write_int(advance_ref, 1);
-		if (advance_ref) {
-			bs = bs.tpush(last_builder);
-			;; maybe_collapse_builders(); advance_group would be =1 in this case
-			last_builder = begin_cell();
-		}
-	}
-
-	last_builder = last_builder.store_ref(c);
-	group_cells_remaining -= distinct_cells;
-	group_bits_remaining -= data_bits;
-}
-
 
 
 () write_op_code(int code) impure inline {
@@ -407,10 +283,6 @@ builder bs_pop2() impure inline {
 () load_by_index(int index) impure inline {
 	write_op_code(load_by_index_code);
 	write_uint(index, cell_index_len);
-}
-() load_by_ref(cell c, int distinct_cells, int data_bits) impure inline {
-	write_op_code(load_by_ref_code);
-	write_cell(c, distinct_cells, data_bits);
 }
 () end_builder(slice bits) impure inline {
 	write_op_code(end_builder_code);
@@ -432,31 +304,15 @@ global cell cell_to_index;
 		return ();
 	}
 
-	(int d_cells, int data_bits, int cell_refs, int success) = compute_data_size?(c, max_single_cells);
-	int small = false;
-	if (success) {
-		if ((d_cells <= max_single_cells) & (data_bits <= max_single_data_bits)) {
-			small = true;
-		}
-	}
-	
-	if (small) {
-		print(10002);
-		print(c.begin_parse());
-		load_by_ref(c, d_cells, data_bits);
-	} else {
-		create_builder();
+	create_builder();
 
-		slice cs = c.begin_parse();
-		print(10003);
-		print(cs);
-		while (~ cs.slice_refs_empty?()) {
-			cell child = cs~load_ref();
-			flatten(child);
-		}
-
-		end_builder(cs);
+	slice cs = c.begin_parse();
+	while (~ cs.slice_refs_empty?()) {
+		cell child = cs~load_ref();
+		flatten(child);
 	}
+
+	end_builder(cs);
 	
 	int index = cells_count;
 	cell_to_index = cell_to_index.udict_set_builder(
@@ -464,9 +320,6 @@ global cell cell_to_index;
 		begin_cell().store_uint(index, cell_index_len)
 	);
 	cells_count += 1;
-
-	print(10007);
-	print(index);
 }
 
 slice test_slice() asm "b{010110111} PUSHSLICE";
@@ -492,8 +345,6 @@ tuple decomposite (cell big_cell, slice destination_address) method_id {
 
 	cells_count = 0;
 	cell_to_index = new_dict();
-	reset_group_limits();
-
 	flatten(big_cell);
 	collapse_remaining_builders();
 
