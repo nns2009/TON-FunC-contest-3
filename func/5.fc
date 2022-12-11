@@ -28,7 +28,7 @@
 
 
 int tuple_len(tuple t) asm "TLEN";
-(tuple, int) ~tuple_pop(tuple t) asm "TPOP";
+forall X -> (tuple, X) ~tuple_pop(tuple t) asm "TPOP";
 
 
 ;; 120 should be enough as the max size of VarUInteger 16
@@ -80,17 +80,8 @@ slice i_address(tuple t) {
 
 (cell, int) udict_get_ref?fixed(cell dict, int key_len, int index) asm(index dict key_len) "DICTUGETREF" "NULLSWAPIFNOT";
 
-tuple merge_sort(tuple vs, int l, int r) impure {
-	if (r - l == 1) {
-		tuple res = empty_tuple();
-		res~tpush(vs.at(l));
-		return res;
-	}
 
-	int m = (l + r) / 2;
-	tuple left = merge_sort(vs, l, m);
-	tuple right = merge_sort(vs, m, r);
-
+tuple merge_lists(tuple left, tuple right) inline {
 	tuple res = empty_tuple();
 	int li = 0;
 	int ri = 0;
@@ -120,6 +111,50 @@ tuple merge_sort(tuple vs, int l, int r) impure {
 	}
 
 	return res;
+}
+
+tuple merge_sort(tuple vs, int l, int r) impure {
+	if (r - l == 1) {
+		tuple res = empty_tuple();
+		res~tpush(vs.at(l));
+		return res;
+	}
+
+	int m = (l + r) / 2;
+	tuple left = merge_sort(vs, l, m);
+	tuple right = merge_sort(vs, m, r);
+	tuple res = merge_lists(left, right);
+	return res;
+}
+
+
+tuple merge_sort_non_recursive(tuple vs) {
+	if (vs.tuple_len() == 0) {
+		return vs;
+	}
+
+	tuple ts = empty_tuple();
+	repeat (vs.tuple_len()) {
+		ts~tpush(single(vs~tuple_pop()));
+	}
+
+	while (ts.tuple_len() > 1) {
+		tuple next_ts = empty_tuple();
+
+		while (ts.tuple_len() >= 2) {
+			tuple one = ts~tuple_pop();
+			tuple another = ts~tuple_pop();
+			tuple combined = merge_lists(one, another);
+			next_ts~tpush(combined);
+		}
+		if (ts.tuple_len() > 0) {
+			next_ts~tpush(ts.first());
+		}
+
+		ts = next_ts;
+	}
+
+	return ts.first();
 }
 
 
@@ -189,9 +224,10 @@ tuple binary_tree_sort(tuple vs) impure {
 		}
 	} until (~ f);
 
-	if (ps.tuple_len()) {
-		ps = merge_sort(ps, 0, ps.tuple_len());
-	}
+	;; if (ps.tuple_len()) {
+	;; 	ps = merge_sort(ps, 0, ps.tuple_len());
+	;; }
+	ps = merge_sort_non_recursive(ps);
 	;; ps = binary_tree_sort(ps);
 
 	;; ps~dump();
