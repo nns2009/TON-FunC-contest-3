@@ -1,12 +1,12 @@
 import BN from 'bn.js';
 import { sample } from 'lodash-es';
 import { Address, Cell, CommentMessage, Slice } from 'ton';
-import { stackCell, stackSlice } from 'ton-contract-executor';
+import { stackCell, stackSlice, SuccessfulExecutionResult } from 'ton-contract-executor';
 
 import { contractLoader, cell, int, invokeGetMethod1Result, invokeGetMethodWithResults, dummyInternalMessage, internalMessage, dummyAddress, suint, invokeGetMethodWithResultsAndLogs, saddress, invokeGetMethod1ResultAndLogs, zeros, ones, invokeGetMethod1ResultAndLogsGas } from './shared.js';
 
 
-let compiledSources = contractLoader('./../func/stdlib.fc', './../func/1.fc');
+let compiledSources = contractLoader(['./../func/stdlib.fc', './../func/1.fc']);
 
 
 type CellTotals = {
@@ -30,6 +30,8 @@ function getCellTotals(cell: Cell): CellTotals {
 
 let contract = await compiledSources(cell());
 
+const debug = false;
+
 let currentTestIndex = 0;
 async function testCell(name: string, bigCell: Cell) {
 	const cellTotals = getCellTotals(bigCell);
@@ -44,20 +46,24 @@ async function testCell(name: string, bigCell: Cell) {
 		[stackCell(bigCell), stackSlice(saddress(destination))]
 	);
 
-	// console.log('logs:', logs);
+	if (debug && logs.length > 0) {
+		console.log('logs:', logs);
+	}
 	// console.log('groups:', groups);
 
 	// console.log('--------- reassembly ---------');
 
 	const gasUsages = [];
 
+	if (groups.length === 0) {
+		throw new Error(`Produced decomposite contains 0 groups!`);
+	}
+	
 	let groupMinBits = Number.MAX_VALUE;
-
 	let groupMaxBits = -1;
 	let groupMaxCells = -1;
 	let groupMaxDepth = -1;
 	let groupMaxBocSize = -1;
-
 	for (let i = 0; i < groups.length; i++) {
 		const group = groups[i];
 
@@ -71,71 +77,92 @@ async function testCell(name: string, bigCell: Cell) {
 		if (i + 1 < groups.length) {
 			groupMinBits = Math.min(groupMinBits, groupTotals.bits);
 		}
+	}
+
+	console.log(`Test ${currentTestIndex} "${name}" decomposited. Gas: ${decompositeGas}. Depth: ${bigCell.getMaxDepth()}, cells: ${cellTotals.cells}, bits: ${cellTotals.bits}. Groups: ${groups.length}, max depth: ${groupMaxDepth}, max cells: ${groupMaxCells}, min bits: ${groupMinBits}, max bits: ${groupMaxBits}, max boc size: ${groupMaxBocSize * 8}`);
+
+	let assembleResult;
+	for (let i = 0; i < groups.length; i++) {
+		const group = groups[i];
 		// !!! Verify group
 		// console.log(`Group ${i}: len=${group.beginParse().remaining}`); //, bits:${group.bits}`);
 
 		const isLastGroup = i + 1 === groups.length;
 
-		const assembleResult = await contract.sendInternalMessage(dummyInternalMessage(group));
+		assembleResult = await contract.sendInternalMessage(dummyInternalMessage(group));
 		gasUsages.push(assembleResult.gas_consumed);
 
 		// console.info(assembleResult.debugLogs);
 
 		if (assembleResult.type !== 'success') {
+			if (assembleResult.debugLogs.length > 0) {
+				console.log(assembleResult.debugLogs);
+			}
 			throw new Error(`Group ${i}: recv_internal should always succeed = not throw, exit_code=${assembleResult.exit_code}`);
+		
 		}
 
 		if (!isLastGroup) {
 			if (assembleResult.actionList.length > 0) {
 				throw new Error(`Group ${i}: Reassembly should not have taken any action, because the group is not last`);
 			}
-			continue;
-		}
-
-		if (assembleResult.actionList.length === 0) {
-			throw new Error(`Group ${i}: No messages sent`);
-		}
-		if (assembleResult.actionList.length > 1) {
-			throw new Error(`Group ${i}: More than one action taken by reassembly`);
-		}
-		
-		const action = assembleResult.actionList[0];
-		if (action.type !== 'send_msg') {
-			throw new Error(`Group ${i}: Action by contract is not 'send_msg'`);
-		}
-		if (action.mode !== 0) {
-			throw new Error(`Group ${i}: Message send by contract with wrong mode (${action.mode}), expected mode=0`);
-		}
-
-		const restoredCell = action.message.body;
-		const restoredHash = restoredCell.hash().toString('hex');
-		const originalHash = bigCell.hash().toString('hex');
-
-		if (originalHash.length < 20) {
-			throw new Error(`Group ${i}: Something is wrong with hashes!\noriginalHash: ${originalHash}\nrestoredHash: ${restoredHash}`);
-		}
-
-		const same = originalHash === restoredHash; // bigCell.equals(restoredCell); <- This produces "incorrect unequal" at least for some nested cells
-
-
-		if (!same) {
-			console.log('original hash:', originalHash);
-			console.log('original:', bigCell);
-			console.log('restored hash:', restoredHash);
-			console.log('restored:', restoredCell);
-			throw new Error(`Group ${i}: restored cell is not the same as the original!`);
 		}
 	}
+	assembleResult = assembleResult as SuccessfulExecutionResult;
+	if (debug && assembleResult.debugLogs.length > 0) {
+		console.log(assembleResult.debugLogs);
+	}
 
-	console.log(`Test ${currentTestIndex} "${name}" passed. Gas: decomposit=${decompositeGas}, last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Depth: ${bigCell.getMaxDepth()}, cells: ${cellTotals.cells}, bits: ${cellTotals.bits}. Groups: ${groups.length}, max depth: ${groupMaxDepth}, min cells: ${groupMinBits}, max cells: ${groupMaxCells}, max bits: ${groupMaxBits}, max boc size: ${groupMaxBocSize * 8}`);
+	if (assembleResult.actionList.length === 0) {
+		throw new Error(`Reassembly: No messages sent`);
+	}
+	if (assembleResult.actionList.length > 1) {
+		throw new Error(`Reassembly: More than one action taken by reassembly`);
+	}
+	
+	const action = assembleResult.actionList[0];
+	if (action.type !== 'send_msg') {
+		throw new Error(`Reassembly: Action by contract is not 'send_msg'`);
+	}
+	if (action.mode !== 0) {
+		throw new Error(`Reassembly: Message send by contract with wrong mode (${action.mode}), expected mode=0`);
+	}
+
+	const restoredCell = action.message.body;
+	const restoredHash = restoredCell.hash().toString('hex');
+	const originalHash = bigCell.hash().toString('hex');
+
+	if (originalHash.length < 20) {
+		throw new Error(`Something is wrong with hashes!\noriginalHash: ${originalHash}\nrestoredHash: ${restoredHash}`);
+	}
+
+	const same = originalHash === restoredHash; // bigCell.equals(restoredCell); <- This produces "incorrect unequal" at least for some nested cells
+
+	if (!same) {
+		console.log('original hash:', originalHash);
+		console.log('original:', bigCell);
+		console.log('restored hash:', restoredHash);
+		console.log('restored:', restoredCell);
+		throw new Error(`Restored cell is not the same as the original!`);
+	}
+
+	console.log(`Test ${currentTestIndex} "${name}" passed. Gas: decomposit=${decompositeGas}, last=${gasUsages.at(-1)}, total=${gasUsages.reduce((a, b) => a + b, 0)}. Depth: ${bigCell.getMaxDepth()}, cells: ${cellTotals.cells}, bits: ${cellTotals.bits}. Groups: ${groups.length}, max depth: ${groupMaxDepth}, max cells: ${groupMaxCells}, min bits: ${groupMinBits}, max bits: ${groupMaxBits}, max boc size: ${groupMaxBocSize * 8}`);
 
 	currentTestIndex++;
+
+	console.log('-'.repeat(60));
 }
 
 
 
-// await testCell('Empty', cell());
-// await testCell('Small Flat', cell(suint(5, 40), suint(13, 24)));
+await testCell('Empty', cell());
+await testCell('Small Flat', cell(suint(5, 40), suint(13, 24)));
+
+const simpleFork = cell(suint(0x100, 32))
+	.withReference(suint(0x100200, 32))
+	.withReference(suint(0x100300, 32));
+await testCell('Simple fork', simpleFork);
+
 const test1fork = cell(suint(123, 41))
 	.withReference(suint(150, 299))
 	.withReference(suint(180, 512))
@@ -283,7 +310,7 @@ function randomTreeGrowCell(
 
 		let bitlen = Math.round(Math.random() * upperRange);
 		if (bitlen > 1023) bitlen = 1023;
-		// let bitlen = (Math.random() < averagePerCell / 1023) ? 1023 : 0;
+		// let bitlen = (Math.random() < averagePerCell / 1023) ? 1022 : 0;
 
 		const c = cell();
 		for (let i = 0; i < bitlen; i++) {
@@ -337,7 +364,8 @@ function randomTreeGrowCell(
 }
 {
 	for (let ri = 0; ri < 100; ri++) {
-		let cell = randomTreeGrowCell(300, 5000, 1200000, testTreeParts, 500);
+		let cell = randomTreeGrowCell(300, 5000, 1500000, testTreeParts, 0);
+		// let cell = randomTreeGrowCell(300, 5000, 1200000, testTreeParts, 500);
 		await testCell(`Random`, cell);
 	}
 }
